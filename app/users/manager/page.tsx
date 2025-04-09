@@ -12,16 +12,6 @@ import {
   FiBell,
 } from "react-icons/fi";
 // Types for our data
-type Employee = {
-  id: number;
-  name: string;
-  position: string;
-  department: string;
-  attendance: string;
-  leaves: number;
-  salary: number;
-  loanStatus: string;
-};
 
 type SummaryStats = {
   totalEmployees: number;
