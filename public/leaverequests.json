@@ -1,0 +1,23 @@
+[
+{
+    "id": 1,
+    "name": "Ayesha Khan",
+    "date": "2025-04-08",
+    "reason": "Medical",
+    "status": "Pending"
+  },
+  {
+    "id": 2,
+    "name": "Sana Tariq",
+    "date": "2025-04-10",
+    "reason": "Personal",
+    "status": "Pending"
+  },
+  {
+    "id": 3,
+    "name": "Abdul Tariq",
+    "date": "2025-04-11",
+    "reason": "Accident",
+    "status": "Pending"
+  }
+]

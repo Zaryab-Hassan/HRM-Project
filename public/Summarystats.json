@@ -1,0 +1,7 @@
+{
+    "totalEmployees": 25,
+    "presentToday": 23,
+    "pendingLeaves": 3,
+    "totalPayroll": 1500000,
+    "birthdaysToday": ["Hamza Ali"]
+}

@@ -1,0 +1,43 @@
+ 
+    [
+        {
+          "id": 1,
+          "name": "Ayesha Khan",
+          "position": "Software Engineer",
+          "department": "Development",
+          "attendance": "95%",
+          "leaves": 2,
+          "salary": 80000,
+          "loanStatus": "Approved"
+        },
+        {
+            "id": 2,
+            "name": "Hamza Ali",
+            "position": "UI/UX Designer",
+            "department": "Design",
+            "attendance": "90%",
+            "leaves": 3,
+            "salary": 70000,
+            "loanStatus": "Pending"
+          },
+        {
+          "id": 3,
+          "name":  "Sana Tariq",
+          "position": "QA Engineer",
+          "department": "Quality Assurance",
+          "attendance": "92%",
+          "leaves": 1,
+          "salary": 870000,
+          "loanStatus": "Rejected"
+        },
+        {
+            "id": 4,
+            "name":  "Ali Raza",
+            "position": "Software Engineer",
+            "department": "software Development",
+            "attendance": "91%",
+            "leaves": 3,
+            "salary": 850000,
+            "loanStatus": "Approved"
+          }
+    ]

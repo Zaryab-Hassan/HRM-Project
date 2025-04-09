@@ -1,0 +1,13 @@
+[
+    { "id": 101, "name": "John Doe", "department": "HR", "role": "Manager", "status": "Active" },
+    { "id": 102, "name": "Jane Smith", "department": "Finance", "role": "Analyst", "status": "Active" },
+    { "id": 103, "name": "Alex Wong", "department": "IT", "role": "Developer", "status": "On Leave" },
+    { "id": 104, "name": "Emily Davis", "department": "Marketing", "role": "Designer", "status": "Active" },
+    { "id": 105, "name": "Michael Brown", "department": "Sales", "role": "Sales Rep", "status": "Inactive" },
+    { "id": 106, "name": "Sarah Johnson", "department": "HR", "role": "Recruiter", "status": "Active" },
+    { "id": 107, "name": "David Wilson", "department": "Finance", "role": "Manager", "status": "On Leave" },
+    { "id": 108, "name": "Laura Garcia", "department": "IT", "role": "Support", "status": "Active" },
+    { "id": 109, "name": "James Martinez", "department": "Marketing", "role": "Coordinator", "status": "Inactive" },
+    { "id": 110, "name": "Linda Rodriguez", "department": "Sales", "role": "Sales Manager", "status": "Active" }
+  ]
+  
