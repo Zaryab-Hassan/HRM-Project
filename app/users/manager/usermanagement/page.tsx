@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { set } from 'react-hook-form';
 import { FiSearch, FiFilter, FiUser, FiTrash2 } from 'react-icons/fi';
 
 type User = {

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FiCalendar, FiCheckCircle, FiXCircle, FiBarChart2, FiDownload } from 'react-icons/fi';
+import { FiCalendar, FiCheckCircle, FiXCircle, FiBarChart2 } from 'react-icons/fi';
 
 type LeaveRequest = {
   id: number;

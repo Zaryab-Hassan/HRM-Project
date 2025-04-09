@@ -40,15 +40,13 @@ type LeaveRequest = {
 };
 
 export default function ManagerDashboard() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+
   const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-  const [activeTab, setActiveTab] = useState("dashboard");
+
 
   useEffect(() => {
             async function fetchData() {
-            const employees = await fetch("/dummyData.json");
-            setEmployees(await employees.json());
             const summaryStats = await fetch("/Summarystats.json");
             setSummaryStats(await summaryStats.json());
             const leaveRequests = await fetch("/leaverequests.json");
@@ -101,29 +99,6 @@ export default function ManagerDashboard() {
             </button>
           </div>
         </div>
-
-        {/* Navigation Menu */}
-        {/* <div>
-          <h2 className="text-sm uppercase font-semibold mb-4 text-pink-200">Navigation</h2>
-          <nav className="space-y-1">
-            <a href="#" className="flex items-center p-3 rounded-lg bg-black bg-opacity-20">
-              <FiHome className="mr-3" />
-              Dashboard
-            </a>
-            <a href="#" className="flex items-center p-3 rounded-lg hover:bg-white hover:bg-opacity-10 transition">
-              <FiUsers className="mr-3" />
-              Employees
-            </a>
-            <a href="#" className="flex items-center p-3 rounded-lg hover:bg-white hover:bg-opacity-10 transition">
-              <FiCalendar className="mr-3" />
-              Attendance
-            </a>
-            <a href="#" className="flex items-center p-3 rounded-lg hover:bg-white hover:bg-opacity-10 transition">
-              <FiFileText className="mr-3" />
-              Reports
-            </a>
-          </nav>
-        </div> */}
       </div>
 
       {/* Main Content */}
