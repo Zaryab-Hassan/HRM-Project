@@ -57,7 +57,7 @@ export default function AttendanceManager() {
         {/* Daily Attendance */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <FiCalendar /> Today's Attendance
+            <FiCalendar /> Today&apos;s Attendance
           </h2>
           <div className="space-y-2">
             <p>Present: <span className="font-bold">92</span></p>

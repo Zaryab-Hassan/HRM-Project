@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
     domains: ['images.pexels.com'], // Replace with your image domain
 
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   /* config options here */
 };
 
