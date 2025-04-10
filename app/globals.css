@@ -1,2 +1,35 @@
 @import "tailwindcss";
 @plugin "daisyui";
+/* app/globals.css */
+@layer base {
+    :root {
+      /* Light theme */
+      --color-bg: #ffffff;
+      --color-text: #111827;
+      --color-border: #e5e7eb;
+      --color-card: #ffffff;
+      --color-hover: #f9fafb;
+    }
+  
+    :root.dark {
+      /* Dark theme */
+      --color-bg: #1a1a1a;
+      --color-text: #f3f4f6;
+      --color-border: #374151;
+      --color-card: #1f2937;
+      --color-hover: #374151;
+    }
+  
+    /* Apply variables to elements */
+    body {
+      @apply bg-[var(--color-bg)] text-[var(--color-text)];
+    }
+  
+    .card {
+      @apply bg-[var(--color-card)] border-[var(--color-border)];
+    }
+  
+    .hover-effect {
+      @apply hover:bg-[var(--color-hover)];
+    }
+  }
