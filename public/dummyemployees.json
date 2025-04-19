@@ -1,0 +1,76 @@
+{
+  "managers": [
+    {
+      "name": "Sarah Johnson",
+      "cnic": "35202-1234567-8",
+      "department": "IT",
+      "role": "manager",
+      "email": "sarah.johnson@company.com",
+      "phone": "+92-300-1234567",
+      "emergencyContact": "+92-300-7654321",
+      "dob": "1985-06-15",
+      "initialSalary": "150000",
+      "currentSalary": "180000",
+      "shift": "Morning",
+      "expiryDate": "2026-12-31"
+    },
+    {
+      "name": "Muhammad Ahmed",
+      "cnic": "35202-8901234-5",
+      "department": "Operations",
+      "role": "manager",
+      "email": "m.ahmed@company.com",
+      "phone": "+92-333-2345678",
+      "emergencyContact": "+92-333-8765432",
+      "dob": "1982-09-22",
+      "initialSalary": "160000",
+      "currentSalary": "185000",
+      "shift": "Morning",
+      "expiryDate": "2026-12-31"
+    }
+  ],
+  "employees": [
+    {
+      "name": "Ayesha Khan",
+      "cnic": "35202-3456789-0",
+      "department": "IT",
+      "role": "employee",
+      "email": "ayesha.khan@company.com",
+      "phone": "+92-321-3456789",
+      "emergencyContact": "+92-321-9876543",
+      "dob": "1990-03-25",
+      "initialSalary": "80000",
+      "currentSalary": "95000",
+      "shift": "Morning",
+      "expiryDate": "2026-12-31"
+    },
+    {
+      "name": "Ali Hassan",
+      "cnic": "35202-4567890-1",
+      "department": "Finance",
+      "role": "employee",
+      "email": "ali.hassan@company.com",
+      "phone": "+92-345-4567890",
+      "emergencyContact": "+92-345-0987654",
+      "dob": "1992-11-10",
+      "initialSalary": "75000",
+      "currentSalary": "85000",
+      "shift": "Evening",
+      "expiryDate": "2026-12-31"
+    },
+    {
+      "name": "Fatima Zahra",
+      "cnic": "35202-5678901-2",
+      "department": "HR",
+      "role": "employee",
+      "email": "fatima.zahra@company.com",
+      "phone": "+92-334-5678901",
+      "emergencyContact": "+92-334-1098765",
+      "dob": "1993-07-18",
+      "initialSalary": "70000",
+      "currentSalary": "82000",
+      "shift": "Morning",
+      "expiryDate": "2026-12-31"
+    }
+  ]
+}

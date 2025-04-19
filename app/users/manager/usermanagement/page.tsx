@@ -1,152 +1,230 @@
-// app/user-management/page.tsx
-'use client';
+"use client";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { FiEdit, FiTrash2, FiEye, FiSearch } from "react-icons/fi";
+import Link from "next/link";
 
-import { useEffect, useState } from 'react';
-import { set } from 'react-hook-form';
-import { FiSearch, FiFilter, FiUser, FiTrash2 } from 'react-icons/fi';
-
-type User = {
-  id: number;
+interface Employee {
+  _id: string;
   name: string;
+  email: string;
   department: string;
-  role: string;
-  status: 'Active' | 'On Leave' | 'Terminated';
-};
+  position: string;
+  status: string;
+  joinDate: string;
+}
 
 export default function UserManagement() {
-  // Sample data - replace with your API data
-  const [users,setUsers] = useState<User[]>([]);
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
+  // Check authentication and authorization
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/");
+    } else if (status === "authenticated" && session?.user?.role !== "manager") {
+      // Redirect non-manager users
+      router.push("/users/" + (session?.user?.role || "employee"));
+    }
+  }, [status, session, router]);
+
+  // Don't render the page until we confirm the user is a manager
+  if (status === "loading" || status === "unauthenticated" || (status === "authenticated" && session?.user?.role !== "manager")) {
+    return <div className="flex justify-center items-center min-h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
+    </div>;
+  }
 
   useEffect(() => {
-    async function fetchData() {
-        const users = await fetch("/users.json");
-        setUsers(await users.json());
-    }
-    fetchData();
-    }
-    , []);
+    async function fetchEmployees() {
+      try {
+        setIsLoading(true);
+        const response = await fetch("/api/employee/profile/all");
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch employees");
+        }
 
-  // Filter logic
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         user.id.toString().includes(searchTerm);
-    const matchesDept = departmentFilter === 'All' || user.department === departmentFilter;
-    const matchesStatus = statusFilter === 'All' || user.status === statusFilter;
-    return matchesSearch && matchesDept && matchesStatus;
-  });
-
-  const handleTerminate = (userId: number) => {
-    if (confirm('Are you sure you want to terminate this user?')) {
-      // In a real app, call your API here
-      alert(`User ${userId} would be terminated in a real app`);
+        const data = await response.json();
+        setEmployees(data.data || []);
+        setFilteredEmployees(data.data || []);
+        setError("");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "An error occurred while fetching employees");
+      } finally {
+        setIsLoading(false);
+      }
     }
+
+    fetchEmployees();
+  }, []);
+
+  useEffect(() => {
+    // Filter employees based on search term
+    if (searchTerm) {
+      const filtered = employees.filter(
+        (employee) =>
+          employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          employee.department.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredEmployees(filtered);
+    } else {
+      setFilteredEmployees(employees);
+    }
+  }, [searchTerm, employees]);
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
   };
 
   return (
-    <div className="container mx-auto p-6 dark:bg-gray-900">
-      <h1 className="text-2xl font-bold mb-6 dark:text-white">User Management</h1>
-      
-      {/* Search and Filter Bar */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div className="relative flex-grow">
-          <FiSearch className="absolute left-3 top-3 text-gray-400 dark:text-gray-500" />
+    <div className="p-6 dark:bg-gray-900">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+          Employee Management
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          View and manage all employees in your department
+        </p>
+      </div>
+
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <FiSearch className="text-gray-400" />
+          </div>
           <input
             type="text"
-            placeholder="Search by name or ID..."
-            className="pl-10 pr-4 py-2 border rounded-lg w-full dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-400"
+            placeholder="Search employees..."
+            className="block w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white shadow-sm"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearch}
           />
         </div>
-        
-        <div className="flex gap-2">
-          <div className="relative">
-            <FiFilter className="absolute left-3 top-3 text-gray-400 dark:text-gray-500" />
-            <select
-              className="pl-10 pr-4 py-2 border rounded-lg appearance-none dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-            >
-              <option value="All">All Departments</option>
-              <option value="HR">HR</option>
-              <option value="Finance">Finance</option>
-              <option value="IT">IT</option>
-            </select>
-          </div>
-          
-          <select
-            className="px-4 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="All">All Statuses</option>
-            <option value="Active">Active</option>
-            <option value="On Leave">On Leave</option>
-            <option value="Terminated">Terminated</option>
-          </select>
+      </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 dark:bg-red-900 dark:text-red-100">
+          <p>{error}</p>
         </div>
-      </div>
-      
-      {/* User Table */}
-      <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-700">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Department</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Role</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredUsers.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.id}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <a 
-                    href={`/profile/${user.id}`} 
-                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
+      )}
+
+      {isLoading ? (
+        <div className="flex justify-center py-10">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-pink-500"></div>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                   >
-                    <FiUser size={14} /> {user.name}
-                  </a>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.department}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.role}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${user.status === 'Active' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 
-                      user.status === 'On Leave' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' : 
-                      'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'}`}>
-                    {user.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() => handleTerminate(user.id)}
-                    disabled={user.status === 'Terminated'}
-                    className={`flex items-center gap-1 ${user.status === 'Terminated' ? 
-                      'text-gray-400 dark:text-gray-500 cursor-not-allowed' : 
-                      'text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300'}`}
+                    Employee
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                   >
-                    <FiTrash2 /> Terminate
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      
-      {/* Empty State */}
-      {filteredUsers.length === 0 && (
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          No users found matching your criteria
+                    Department
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Status
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                  >
+                    Join Date
+                  </th>
+                  <th scope="col" className="relative px-6 py-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredEmployees.length > 0 ? (
+                  filteredEmployees.map((employee) => (
+                    <tr 
+                      key={employee._id} 
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                      onClick={() => router.push(`/users/manager/usermanagement/${employee._id}`)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-pink-100 dark:bg-gray-600 flex items-center justify-center">
+                            <span className="text-pink-800 dark:text-pink-300 font-medium">
+                              {employee.name.charAt(0)}
+                            </span>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {employee.name}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {employee.email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {employee.department}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                          ${
+                            employee.status === "Active"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              : employee.status === "On Leave"
+                              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                          }`}
+                        >
+                          {employee.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(employee.joinDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end space-x-3" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            className="px-3 py-1 bg-red-100 text-red-600 hover:bg-red-200 rounded-md transition-colors dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800 flex items-center gap-2"
+                            title="Terminate Employee"
+                          >
+                            <FiTrash2 className="w-4 h-4" />
+                            Terminate
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-6 py-4 text-center text-gray-500 dark:text-gray-400"
+                    >
+                      No employees found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

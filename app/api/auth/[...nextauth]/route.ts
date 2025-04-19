@@ -1,0 +1,81 @@
+import NextAuth from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import Employee from '@/models/Employee';
+import Manager from '@/models/Manager';
+import Admin from '@/models/Admin';
+import connectToDatabase from '@/lib/mongodb';
+
+export const authOptions = {
+  secret: process.env.NEXTAUTH_SECRET || 'your-secret-key',
+  providers: [
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        email: { label: "Email", type: "text" },
+        password: { label: "Password", type: "password" }
+      },      async authorize(credentials: { email: string; password: string } | undefined) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Please provide email and password');
+        }
+
+        await connectToDatabase();
+
+        // Check all user types (Employee, Manager, Admin)
+        const employee = await Employee.findOne({ email: credentials.email });
+        const manager = await Manager.findOne({ email: credentials.email });
+        const admin = await Admin.findOne({ email: credentials.email });
+
+        const user = employee || manager || admin;
+
+        if (!user) {
+          throw new Error('No user found');
+        }
+
+        const isValid = await user.comparePassword(credentials.password);
+
+        if (!isValid) {
+          throw new Error('Invalid password');
+        }
+
+        // Determine role based on which collection the user was found in
+        let role = 'employee';
+        if (manager) role = 'manager';
+        if (admin) role = 'hr';
+
+        return {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          role: role
+        };
+      }
+    })
+  ],
+  callbacks: {
+    async jwt({ token, user }: { token: any, user: any }) {
+      if (user) {
+        token.id = user.id;
+        token.role = user.role;
+      }
+      return token;
+    },
+    async session({ session, token }: { session: any, token: any }) {
+      if (session.user) {
+        session.user.id = token.id;
+        session.user.role = token.role;
+      }
+      return session;
+    }
+  },
+  pages: {
+    signIn: '/login',
+  },
+  session: {
+    strategy: 'jwt' as 'jwt',
+  }
+};
+
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };
+

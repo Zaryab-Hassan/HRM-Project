@@ -1,12 +1,17 @@
 "use client";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
+import { FiLogOut } from "react-icons/fi";
 
 const Navbar = () => {
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: '/' });
+  };
   return (
     <>
       <div className="navbar bg-pink-600 shadow-sm text-white">
         <div className="flex-1">
-          <a className="btn btn-ghost text-xl">HRM</a>
+          <Link href="/users/manager" className="btn btn-ghost text-xl">HRM</Link>
         </div>
         <div className="flex-none">
           <ul className="menu menu-horizontal px-1">
@@ -18,6 +23,13 @@ const Navbar = () => {
             </li>
             <li>
               <Link href="/users/manager/payrollmanagement">Payroll Management</Link>
+            </li>            <li>
+              <a 
+                onClick={handleLogout}
+                className="cursor-pointer"
+              >
+                <FiLogOut className="mr-1 inline" /> Logout
+              </a>
             </li>
           </ul>
         </div>
