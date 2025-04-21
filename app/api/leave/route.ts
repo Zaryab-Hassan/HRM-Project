@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]/route';
-const JWT_SECRET = env.JWT_SECRET || 'secret'; // Ensure you have a fallback for JWT_SECRET
-import jwt from 'jsonwebtoken';
+const JWT_SECRET = process.env.JWT_SECRET || 'secret'; // Use process.env instead of env
 import dbConnect from '@/lib/mongodb';
 import LeaveRequest from '@/models/LeaveRequest';
 import Employee from '@/models/Employee';
 import Manager from '@/models/Manager';
-import { env } from 'process';
 
 // Get all leave requests based on user role
 export async function GET(req: Request) {
   try {
     await dbConnect();
+    
+    // Parse URL to get query parameters
+    const url = new URL(req.url);
+    const statusFilter = url.searchParams.get('status');
+    const source = url.searchParams.get('source');
     
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
@@ -24,14 +26,22 @@ export async function GET(req: Request) {
     const userId = session.user.id;
     const userRole = session.user.role;
     
+    let queryFilter: any = {};
+    
+    // Apply status filter if provided
+    if (statusFilter) {
+      queryFilter.status = statusFilter;
+    }
+    
     let requests = [];
     
     // For employees - get their own requests
     if (userRole === 'employee') {
-      requests = await LeaveRequest.find({ employeeId: userId })
+      queryFilter.employeeId = userId;
+      
+      requests = await LeaveRequest.find(queryFilter)
         .populate('approvedBy', 'name email')
-        .sort({ requestDate: -1 })
-        .lean() || [];
+        .sort({ createdAt: -1 });
     }
     // For managers - get requests from their team members
     else if (userRole === 'manager') {
@@ -39,26 +49,60 @@ export async function GET(req: Request) {
       if (!manager) {
         return NextResponse.json({ error: 'Manager not found' }, { status: 404 });
       }
-      requests = await LeaveRequest.find({
-        employeeId: { $in: manager.team }
-      })
-        .populate('employeeId', 'name email')
-        .populate('approvedBy', 'name email')
-        .sort({ requestDate: -1 })
-        .lean() || [];
+      
+      // If explicitly requesting from leaveRequest.db, use the collection name
+      if (source === 'leaveRequest.db') {
+        // Direct query to ensure we get all data from leaveRequest.db
+        // Convert documents to plain objects to avoid any serialization issues
+        const rawRequests = await LeaveRequest.find().lean().sort({ createdAt: -1 });
+        
+        // Process raw requests to ensure properly formatted data
+        requests = rawRequests.map(req => ({
+          ...req,
+          _id: (req as any)._id?.toString() || '', // Ensure MongoDB ObjectId is converted to string
+          status: req.status || 'Pending', // Default status if missing
+          createdAt: req.createdAt ? req.createdAt.toISOString() : new Date().toISOString()
+        }));
+      } 
+      else if (manager.team && manager.team.length > 0) {
+        queryFilter.employeeId = { $in: manager.team };
+        
+        requests = await LeaveRequest.find(queryFilter)
+          .populate('employeeId', 'name email')
+          .populate('approvedBy', 'name email')
+          .sort({ createdAt: -1 });
+      }
     }
     // For HR admins - get all requests
-    else if (userRole === 'hr') {
-      requests = await LeaveRequest.find()
+    else if (userRole === 'hr' || userRole === 'admin') {
+      requests = await LeaveRequest.find(queryFilter)
         .populate('employeeId', 'name email')
         .populate('approvedBy', 'name email')
-        .sort({ requestDate: -1 })
-        .lean() || [];
+        .sort({ createdAt: -1 });
     } else {
       return NextResponse.json({ error: 'Invalid role' }, { status: 401 });
     }
 
-    return NextResponse.json(requests);
+    // Normalize records to ensure status has proper capitalization for consistent filtering
+    const normalizedRequests = requests.map(request => {
+      // If this is a Mongoose document, convert to plain object
+      const plainRequest = request.toObject ? request.toObject() : { ...request };
+      
+      // Ensure status is properly capitalized if present
+      if (plainRequest.status && typeof plainRequest.status === 'string') {
+        const statusLower = plainRequest.status.toLowerCase();
+        if (statusLower === 'pending') plainRequest.status = 'Pending';
+        else if (statusLower === 'approved') plainRequest.status = 'Approved';
+        else if (statusLower === 'rejected') plainRequest.status = 'Rejected';
+      }
+      
+      return plainRequest;
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: normalizedRequests
+    });
   } catch (error) {
     console.error('Error in leave requests:', error);
     return NextResponse.json(

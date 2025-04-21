@@ -42,7 +42,21 @@ const LeaveManagement: React.FC = () => {
           throw new Error('Failed to fetch leave requests');
         }
         const data = await response.json();
-        setLeaveRequests(data);
+        
+        // Handle different response formats to ensure we have an array
+        let requests = [];
+        if (Array.isArray(data)) {
+          requests = data;
+        } else if (data && data.data && Array.isArray(data.data)) {
+          requests = data.data;
+        } else if (data && data.requests && Array.isArray(data.requests)) {
+          requests = data.requests;
+        } else {
+          console.warn('Unexpected API response format:', data);
+          requests = []; // Default to empty array if format is unexpected
+        }
+        
+        setLeaveRequests(requests);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch leave requests');
       } finally {

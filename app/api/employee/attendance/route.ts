@@ -28,49 +28,128 @@ function safeDateParse(dateString: string | Date): Date | null {
 export async function GET(req: Request) {
   try {
     await dbConnect();
-
-    // Use NextAuth session for authentication
+    
+    // Parse URL and get query parameters
+    const url = new URL(req.url);
+    const dateParam = url.searchParams.get('date');
+    const employeeIdParam = url.searchParams.get('employeeId');
+    
+    // Get session for authentication
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
-
-    // Ensure user is an employee
-    if (session.user.role !== 'employee') {
-      return NextResponse.json({ error: 'Access denied: Employee access only' }, { status: 403 });
+    
+    // For managers querying all employees' attendance by date
+    if (dateParam && session.user.role === 'manager') {
+      // Parse the date parameter
+      const requestedDate = new Date(dateParam);
+      const nextDay = new Date(requestedDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      // Find all employees with attendance records for the requested date
+      const employees = await Employee.find({});
+      const result: Array<{
+        employeeId: string;
+        employeeName: string;
+        department: string;
+        date?: string;
+        clockIn?: string;
+        clockOut?: string;
+        status?: string;
+        hoursWorked?: number;
+        autoClockOut?: boolean;
+        notes?: string;
+        [key: string]: any;
+      }> = [];
+      
+      // Process each employee's attendance
+      for (const employee of employees) {
+        if (!Array.isArray(employee.attendance)) continue;
+        
+        // Find attendance records for the requested date
+        const dateRecords = employee.attendance.filter((record: any) => {
+          if (!record || !record.date) return false;
+          const recordDate = safeDateParse(record.date);
+          return recordDate && 
+                 recordDate >= requestedDate && 
+                 recordDate < nextDay;
+        });
+        
+        // Add employee's attendance data to result
+        dateRecords.forEach((record: any) => {
+          result.push({
+            employeeId: employee._id,
+            employeeName: employee.name,
+            department: employee.department,
+            ...record._doc || record
+          });
+        });
+      }
+      
+      return NextResponse.json({
+        success: true,
+        data: result
+      });
     }
     
-    const employeeId = session.user.id;
+    // For single employee attendance records
+    let employeeId = session.user.id;
+    
+    // Allow managers to query specific employee's data
+    if (employeeIdParam && session.user.role === 'manager') {
+      employeeId = employeeIdParam;
+    } else if (session.user.role !== 'employee' && !employeeIdParam) {
+      // Only employees can see their own records without specifying an ID
+      return NextResponse.json({ error: 'Employee ID required' }, { status: 400 });
+    }
+    
     const { firstDay, lastDay } = getCurrentMonthDateRange();
-
-    // Find employee and their attendance records for the current month
+    
+    // Find employee and their attendance records
     const employee = await Employee.findById(employeeId);
-
+    
     if (!employee) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
-
+    
     // Ensure attendance array exists
     if (!Array.isArray(employee.attendance)) {
       employee.attendance = [];
       await employee.save();
     }
-
-    // Filter attendance records for the current month
-    const currentMonthAttendance = employee.attendance
-      .filter((record: any) => {
+    
+    // Filter attendance records based on date parameter or default to current month
+    let filteredAttendance;
+    if (dateParam) {
+      const requestedDate = new Date(dateParam);
+      const nextDay = new Date(requestedDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      filteredAttendance = employee.attendance.filter((record: any) => {
+        if (!record || !record.date) return false;
+        const recordDate = safeDateParse(record.date);
+        return recordDate && 
+               recordDate >= requestedDate && 
+               recordDate < nextDay;
+      });
+    } else {
+      // Default: filter for current month
+      filteredAttendance = employee.attendance.filter((record: any) => {
         if (!record || !record.date) return false;
         const recordDate = safeDateParse(record.date);
         return recordDate && recordDate >= firstDay && recordDate <= lastDay;
-      })
-      .sort((a: any, b: any) => {
-        // Sort by date (descending - newest first)
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
-
+    }
+    
+    // Sort attendance records by date (newest first)
+    const sortedAttendance = filteredAttendance.sort((a: any, b: any) => {
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+    
     return NextResponse.json({
       success: true,
-      data: currentMonthAttendance
+      data: sortedAttendance
     });
   } catch (error) {
     console.error('Error fetching attendance:', error);

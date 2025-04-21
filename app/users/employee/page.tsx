@@ -3,17 +3,112 @@
 import { FiCalendar, FiDollarSign, FiClock, FiBell } from 'react-icons/fi';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import Notifications from '../../../components/Notifications';
 
 export default function EmployeeDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [birthdaysToday, setBirthdaysToday] = useState<string[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [userLeaveRequests, setUserLeaveRequests] = useState<any[]>([]);
+  const [recentAnnouncements, setRecentAnnouncements] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    attendance: '0%',
+    leavesRemaining: 0,
+    leavesTaken: 0,
+    upcomingSalary: 0,
+    recentPayments: []
+  });
   
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
     }
   }, [status, router]);
+
+  // Fetch employee data
+  useEffect(() => {
+    if (status === 'authenticated') {
+      // Fetch employee stats
+      fetch('/api/employee/status')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setStats({
+              attendance: data.attendance || '0%',
+              leavesRemaining: data.leavesRemaining || 0,
+              leavesTaken: data.leavesTaken || 0,
+              upcomingSalary: data.salary || 0,
+              recentPayments: data.recentPayments || []
+            });
+          }
+        })
+        .catch(err => console.error('Error fetching employee stats:', err));
+
+      // Fetch birthdays
+      fetch('/api/employee/birthdays')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setBirthdaysToday(data.birthdaysToday || []);
+          }
+        })
+        .catch(err => console.error('Error fetching birthdays:', err));
+
+      // Fetch employee's leave requests
+      fetch('/api/leave')
+        .then(res => res.json())
+        .then(data => {
+          // Handle different response formats
+          let requests = [];
+          if (Array.isArray(data)) {
+            requests = data;
+          } else if (data && data.data && Array.isArray(data.data)) {
+            requests = data.data;
+          } else if (data && data.requests && Array.isArray(data.requests)) {
+            requests = data.requests;
+          }
+          
+          // Filter for the employee's own requests (recent ones only)
+          const today = new Date();
+          const threeMonthsAgo = new Date();
+          threeMonthsAgo.setMonth(today.getMonth() - 3);
+
+          // Get only relevant leave requests (recent and upcoming)
+          const relevantRequests = requests.filter((req: any) => {
+            const endDate = new Date(req.endDate);
+            return endDate >= threeMonthsAgo;
+          });
+
+          // Show a maximum of 5 leave requests in notifications
+          setUserLeaveRequests(relevantRequests.slice(0, 5));
+
+          // Filter for pending approvals if the user has manager permissions
+          const pending = requests.filter((req: any) => req.status === 'Pending');
+          setPendingApprovals(pending);
+        })
+        .catch(err => console.error('Error fetching leave requests:', err));
+        
+      // Fetch recent announcements (within last 5 days)
+      fetch('/api/announcements')
+        .then(res => res.json())
+        .then(data => {
+          // Filter announcements from the past 5 days
+          const fiveDaysAgo = new Date();
+          fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+          
+          let announcements = Array.isArray(data) ? data : [];
+          const recentOnes = announcements.filter((announcement: any) => {
+            const announcementDate = new Date(announcement.date);
+            return announcementDate >= fiveDaysAgo;
+          });
+          
+          setRecentAnnouncements(recentOnes);
+        })
+        .catch(err => console.error('Error fetching announcements:', err));
+    }
+  }, [status]);
 
   // Show loading state while checking authentication
   if (status === 'loading') {
@@ -23,24 +118,6 @@ export default function EmployeeDashboard() {
       </div>
     );
   }
-
-  // Sample data - replace with actual API calls
-  const stats = {
-    attendance: '92%',
-    leavesRemaining: 12,
-    leavesTaken: 3,
-    upcomingSalary: 4500,
-    recentPayments: [
-      { month: 'May 2023', amount: 4500 },
-      { month: 'April 2023', amount: 4500 }
-    ]
-  };
-
-  const notifications = [
-    { id: 1, type: 'birthday', message: "John Doe's birthday tomorrow", date: '2023-06-15' },
-    { id: 2, type: 'deadline', message: "Timesheet submission due in 2 days", date: '2023-06-17' },
-    { id: 3, type: 'birthday', message: "James birthday", date: '2023-06-17' }
-  ];
   
   // Only render dashboard if authenticated
   return (
@@ -86,7 +163,7 @@ export default function EmployeeDashboard() {
               <div>
                 <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Upcoming Salary</h3>
                 <p className="text-2xl font-bold mt-1 dark:text-white">${stats.upcomingSalary}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Expected June 30</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Expected at month-end</p>
               </div>
               <div className="p-3 rounded-lg bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
                 <FiDollarSign className="text-xl" />
@@ -95,38 +172,13 @@ export default function EmployeeDashboard() {
           </div>
         </div>
         
-        {/* Notifications Section */}
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-800 dark:text-white">
-              <FiBell className="text-blue-600 dark:text-blue-400" />
-              Upcoming Notifications
-            </h2>
-          </div>
-          <div className="p-6">
-            {notifications.length > 0 ? (
-              <ul className="space-y-4">
-                {notifications.map(notification => (
-                  <li key={notification.id} className="flex items-start p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <div className={`flex-shrink-0 mt-1 h-5 w-5 rounded-full flex items-center justify-center ${
-                      notification.type === 'birthday' 
-                        ? 'bg-pink-100 dark:bg-pink-900 text-pink-600 dark:text-pink-300' 
-                        : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-300'
-                    }`}>
-                      <FiBell className="text-xs" />
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-800 dark:text-white">{notification.message}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{notification.date}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-gray-500 dark:text-gray-400 text-center py-4">No upcoming notifications</p>
-            )}
-          </div>
-        </div>
+        {/* Notifications Section - Using our component with employee specific data */}
+        <Notifications 
+          birthdaysToday={birthdaysToday} 
+          userLeaveRequests={userLeaveRequests}
+          recentAnnouncements={recentAnnouncements}
+          isEmployee={true}
+        />
       </div>
     </div>
   );

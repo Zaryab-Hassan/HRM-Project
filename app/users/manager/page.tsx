@@ -10,9 +10,11 @@ import {
   FiX,
   FiUserPlus,
   FiBell,
-  FiSearch
+  FiSearch,
+  FiUser
 } from "react-icons/fi";
 import PendingLeaveRequests from "../../../components/PendingLeaveRequests";
+import Notifications from "../../../components/Notifications";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -41,7 +43,7 @@ type Employee = {
   name: string;
   department: string;
   role: string;
-  status?: 'Added';
+  status?: 'Added' | 'Active' | 'On Leave' | 'Terminated'; 
 };
 
 export default function ManagerDashboard() {
@@ -50,11 +52,101 @@ export default function ManagerDashboard() {
   const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [availableEmployees, setAvailableEmployees] = useState<Employee[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
+  const [terminatingEmployee, setTerminatingEmployee] = useState<string | null>(null);
+  
+  // Add registration form state
+  const [registrationForm, setRegistrationForm] = useState({
+    name: '',
+    cnic: '',
+    department: '',
+    role: 'employee', // Default role is employee
+    email: '',
+    phone: '',
+    emergencyContact: '',
+    dob: '',
+    initialSalary: '',
+    currentSalary: '',
+    shift: 'Morning',
+    expiryDate: ''
+  });
+
+  // Handle registration form change
+  const handleRegistrationChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setRegistrationForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle employee registration
+  const handleRegisterEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setError('');
+      
+      // Create submission data with default password as CNIC
+      const submissionData = {
+        ...registrationForm,
+        password: registrationForm.cnic, // Set default password as CNIC
+        currentSalary: registrationForm.initialSalary, // Initialize current salary same as initial
+        role: 'hr' // Always set role as HR when registering from manager page
+      };
+
+      // Use employee registration endpoint
+      const response = await fetch('/api/auth/register/employee', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submissionData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed');
+      }
+
+      // Clear form on success
+      setRegistrationForm({
+        name: '',
+        cnic: '',
+        department: '',
+        role: 'employee',
+        email: '',
+        phone: '',
+        emergencyContact: '',
+        dob: '',
+        initialSalary: '',
+        currentSalary: '',
+        shift: 'Morning',
+        expiryDate: ''
+      });
+
+      // Close modal and refresh dashboard
+      setShowRegistrationModal(false);
+      
+      // Update stats after successful addition
+      if (summaryStats) {
+        setSummaryStats({
+          ...summaryStats,
+          totalEmployees: summaryStats.totalEmployees + 1
+        });
+      }
+
+      alert('Employee registered successfully! Default password is set to CNIC number.');
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
+    }
+  };
 
   // Check authentication and authorization
   useEffect(() => {
@@ -66,36 +158,72 @@ export default function ManagerDashboard() {
     }
   }, [status, session, router]);
 
+  // Fetch dashboard data
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [summaryStatsRes, leaveRequestsRes, announcementsRes] = await Promise.all([
+          fetch("/api/manager/summary"),
+          fetch("/api/leave?source=leaveRequest.db"), // Explicitly request from leaveRequest.db
+          fetch("/api/announcements")
+        ]);
+
+        if (!summaryStatsRes.ok || !leaveRequestsRes.ok || !announcementsRes.ok) {
+          throw new Error('Failed to fetch data');
+        }
+
+        const summaryData = await summaryStatsRes.json();
+        const leaveData = await leaveRequestsRes.json();
+        const announcementsData = await announcementsRes.json();
+        
+        setSummaryStats(summaryData);
+        
+        console.log("Leave data received:", leaveData); // Add logging for debugging
+        
+        // Extract the leave requests from the response
+        let leaveRequests = [];
+        if (leaveData && leaveData.success && leaveData.data) {
+          leaveRequests = leaveData.data;
+        } else if (leaveData && Array.isArray(leaveData)) {
+          leaveRequests = leaveData;
+        } else if (leaveData && leaveData.requests) {
+          leaveRequests = leaveData.requests;
+        }
+        
+        console.log("Extracted leave requests:", leaveRequests); // Log the extracted requests
+        setLeaveRequests(leaveRequests);
+        
+        // Filter announcements from the past 5 days
+        const fiveDaysAgo = new Date();
+        fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+        
+        let announcements = Array.isArray(announcementsData) ? announcementsData : [];
+        const recentOnes = announcements.filter(announcement => {
+          const announcementDate = new Date(announcement.date);
+          return announcementDate >= fiveDaysAgo;
+        });
+        
+        setRecentAnnouncements(recentOnes);
+        
+        setError('');
+      } catch (err) {
+        console.error("Error fetching data:", err); // Log any errors
+        setError(err instanceof Error ? err.message : 'Failed to fetch dashboard data');
+      }
+    }
+    
+    // Only fetch data if the user is authenticated as a manager
+    if (status === "authenticated" && session?.user?.role === "manager") {
+      fetchData();
+    }
+  }, [status, session]);
+
   // Don't render the dashboard until we confirm the user is a manager
   if (status === "loading" || status === "unauthenticated" || (status === "authenticated" && session?.user?.role !== "manager")) {
     return <div className="flex justify-center items-center min-h-screen">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
     </div>;
   }
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [summaryStatsRes, leaveRequestsRes] = await Promise.all([
-          fetch("/api/manager/summary"),
-          fetch("/api/leave") // This endpoint already handles team-based filtering for managers
-        ]);
-
-        if (!summaryStatsRes.ok || !leaveRequestsRes.ok) {
-          throw new Error('Failed to fetch data');
-        }
-
-        const summaryData = await summaryStatsRes.json();
-        const leaveData = await leaveRequestsRes.json();
-        setSummaryStats(summaryData);
-        setLeaveRequests(leaveData);
-        setError('');
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch dashboard data');
-      }
-    }
-    fetchData();
-  }, []);
 
   const handleAddEmployee = async (employeeId: string) => {
     try {
@@ -270,6 +398,47 @@ export default function ManagerDashboard() {
       setError(err instanceof Error ? err.message : 'Failed to post announcement');
     }
   };
+
+  // Handle terminate employee
+  const handleTerminateEmployee = async (employeeId: string) => {
+    try {
+      setTerminatingEmployee(employeeId);
+      const response = await fetch('/api/employee/status', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ employeeId, status: 'Terminated' }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to terminate employee');
+      }
+
+      // Update the local state to reflect the termination
+      setAvailableEmployees(prevEmployees =>
+        prevEmployees.map(emp =>
+          emp._id === employeeId ? { ...emp, status: 'Terminated' } : emp
+        )
+      );
+
+      // Update summary stats if needed
+      if (summaryStats) {
+        // You might want to update relevant stats when an employee is terminated
+        // For example, reduce total employee count if terminated employees are excluded
+      }
+
+      setError('');
+      alert('Employee has been terminated successfully.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to terminate employee');
+    } finally {
+      setTerminatingEmployee(null);
+    }
+  };
+
   return (
     <div className="flex bg-gray-50 dark:bg-gray-900 min-h-screen overflow-hidden">
       {/* Sidebar */}
@@ -281,23 +450,25 @@ export default function ManagerDashboard() {
 
         <div className="mb-8">
           <h2 className="text-sm uppercase font-semibold mb-4 dark:text-gray-300">Quick Actions</h2>
-          <div className="space-y-2">            <button 
+          <div className="space-y-2">
+            <button 
+              onClick={() => setShowRegistrationModal(true)}
+              className="flex items-center w-full p-3 rounded-lg bg-opacity-10 hover:bg-opacity-20 transition dark:hover:bg-gray-700">
+              <FiUserPlus className="mr-3 text-pink-500" />
+              <span className="dark:text-gray-300">Register Employee</span>
+            </button>
+            
+            <button 
               onClick={() => setShowLeaveModal(true)}
               className="flex items-center w-full p-3 rounded-lg bg-opacity-10 hover:bg-opacity-20 transition dark:hover:bg-gray-700">
               <FiCheck className="mr-3 text-pink-500" />
               <span className="dark:text-gray-300">Approve Leaves</span>
-            </button>            <button 
+            </button>            
+            <button 
               onClick={() => setShowAnnouncementModal(true)}
               className="flex items-center w-full p-3 rounded-lg bg-opacity-10 hover:bg-opacity-20 transition dark:hover:bg-gray-700">
               <FiMail className="mr-3 text-pink-500" />
               <span className="dark:text-gray-300">Post Announcement</span>
-            </button>
-            <button 
-              onClick={handleOpenAddModal}
-              className="flex items-center w-full p-3 rounded-lg bg-opacity-10 hover:bg-opacity-20 transition dark:hover:bg-gray-700"
-            >
-              <FiUserPlus className="mr-3 text-pink-500" />
-              <span className="dark:text-gray-300">Add Employee</span>
             </button>
             <button className="flex items-center w-full p-3 rounded-lg bg-opacity-10 hover:bg-opacity-20 transition dark:hover:bg-gray-700">
               <FiDollarSign className="mr-3 text-pink-500" />
@@ -371,9 +542,22 @@ export default function ManagerDashboard() {
                           {employee.role}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-left text-gray-500 dark:text-gray-300">
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
-                            Active
-                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
+                              {employee.status === 'Terminated' ? 'Terminated' : 'Active'}
+                            </span>
+                            <button
+                              onClick={() => handleTerminateEmployee(employee._id)}
+                              disabled={employee.status === 'Terminated' || terminatingEmployee === employee._id}
+                              className={`px-2 py-1 text-xs font-medium rounded-lg 
+                                ${employee.status === 'Terminated' || terminatingEmployee === employee._id
+                                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
+                                  : 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-800 dark:text-red-100 dark:hover:bg-red-700'
+                                }`}
+                            >
+                              {terminatingEmployee === employee._id ? 'Processing...' : 'Terminate'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -549,6 +733,203 @@ export default function ManagerDashboard() {
           </div>
         )}
 
+        {/* Register New Employee Modal */}
+        {showRegistrationModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto">
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 w-full max-w-3xl border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold dark:text-white flex items-center">
+                  <FiUserPlus className="mr-2 text-pink-500" />
+                  Register New Employee
+                </h2>
+                <button 
+                  onClick={() => setShowRegistrationModal(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <FiX className="text-2xl" />
+                </button>
+              </div>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleRegisterEmployee} className="w-full bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Personal Information */}
+                  <div className="space-y-4">
+                    <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-800 dark:text-white">
+                      <FiUser /> Personal Information
+                    </h2>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Full Name*</label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={registrationForm.name}
+                        onChange={handleRegistrationChange}
+                        className="w-full p-2 border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white rounded-lg"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">CNIC*</label>
+                      <input
+                        type="text"
+                        name="cnic"
+                        value={registrationForm.cnic}
+                        onChange={handleRegistrationChange}
+                        className="w-full p-2 border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white rounded-lg"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Role*</label>
+                      <select
+                        name="role"
+                        value={registrationForm.role}
+                        onChange={handleRegistrationChange}
+                        className="w-full p-2 border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white rounded-lg"
+                        required
+                      >
+                        <option value="">Select Role</option>
+                        <option value="employee">Employee</option>
+                        <option value="hr">HR Personnel</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Department*</label>
+                      <select
+                        name="department"
+                        value={registrationForm.department}
+                        onChange={handleRegistrationChange}
+                        className="w-full p-2 border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white rounded-lg"
+                        required
+                      >
+                        <option value="">Select Department</option>
+                        <option value="Finance">Finance</option>
+                        <option value="IT">IT</option>
+                        <option value="Operations">Operations</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Email*</label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={registrationForm.email}
+                        onChange={handleRegistrationChange}
+                        className="w-full p-2 border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white rounded-lg"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Phone Number*</label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={registrationForm.phone}
+                        onChange={handleRegistrationChange}
+                        className="w-full p-2 border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white rounded-lg"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Employment Information */}
+                  <div className="space-y-4">
+                    <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-800 dark:text-white">
+                      <FiDollarSign /> Employment Information
+                    </h2>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Emergency Contact*</label>
+                      <input
+                        type="text"
+                        name="emergencyContact"
+                        value={registrationForm.emergencyContact}
+                        onChange={handleRegistrationChange}
+                        className="w-full p-2 border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white rounded-lg"
+                        placeholder="Name,Phone,Relationship"
+                        required
+                      />
+                    </div>
+            
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Date of Birth*</label>
+                      <input
+                        type="date"
+                        name="dob"
+                        value={registrationForm.dob}
+                        onChange={handleRegistrationChange}
+                        className="w-full p-2 border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white rounded-lg"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Salary at Appointment*</label>
+                      <input
+                        type="number"
+                        name="initialSalary"
+                        value={registrationForm.initialSalary}
+                        onChange={handleRegistrationChange}
+                        className="w-full p-2 border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white rounded-lg"
+                        required
+                      />
+                    </div>
+            
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Shift*</label>
+                      <select
+                        name="shift"
+                        value={registrationForm.shift}
+                        onChange={handleRegistrationChange}
+                        className="w-full p-2 border bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white rounded-lg"
+                        required
+                      >
+                        <option value="">Select Shift</option>
+                        <option value="Morning">Morning (9AM-5PM)</option>
+                        <option value="Evening">Evening (2PM-10PM)</option>
+                        <option value="Night">Night (10PM-6AM)</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1 dark:text-gray-300">Expiry Date*</label>
+                      <input
+                        type="date"
+                        name="expiryDate"
+                        value={registrationForm.expiryDate}
+                        onChange={handleRegistrationChange}
+                        className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-8 flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition"
+                  >
+                    Register Employee
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Rest of your existing JSX */}
         <div className="p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -600,7 +981,7 @@ export default function ManagerDashboard() {
                 <div>
                   <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Monthly Payroll</h3>
                   <p className="text-2xl font-bold mt-1 dark:text-white">
-                    ${summaryStats?.totalPayroll.toLocaleString()}
+                    ${summaryStats?.totalPayroll ? summaryStats.totalPayroll.toLocaleString() : '0'}
                   </p>
                 </div>
                 <div className="p-3 rounded-lg bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400">
@@ -627,73 +1008,15 @@ export default function ManagerDashboard() {
         </div>
 
         {/* Notifications Section */}
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-            <h2 className="text-xl font-semibold flex items-center dark:text-white">
-              <FiBell className="mr-2 text-pink-600" />
-              Notifications
-            </h2>
-          </div>
-          <div className="p-6">
-            {/* Birthdays */}
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 flex items-center">
-                <span className="h-2 w-2 bg-pink-500 rounded-full mr-2"></span>
-                Birthdays Today
-              </h3>
-              {summaryStats?.birthdaysToday.length ? (
-                <ul className="space-y-3">
-                  {summaryStats.birthdaysToday.map(name => (
-                    <li key={name} className="flex items-center p-3 bg-pink-50 dark:bg-gray-700 rounded-lg">
-                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-pink-100 dark:bg-gray-600 flex items-center justify-center text-pink-600 dark:text-pink-400">
-                        {name.charAt(0)}
-                      </div>
-                      <div className="ml-3">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{name}</p>
-                        <p className="text-sm text-pink-600 dark:text-pink-400">Birthday Today!</p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-400 text-sm pl-4">No birthdays today</p>
-              )}
-            </div>
-
-            {/* Pending Approvals */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 flex items-center">
-                <span className="h-2 w-2 bg-yellow-500 rounded-full mr-2"></span>
-                Pending Approvals
-              </h3>
-              {leaveRequests.filter(req => req.status === "Pending").length ? (
-                <ul className="space-y-3">
-                  {leaveRequests.filter(req => req.status === "Pending").map(request => (
-                    <li key={request._id} className="p-3 bg-yellow-50 dark:bg-gray-700 rounded-lg hover:bg-yellow-100 dark:hover:bg-gray-600 transition">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-8 w-8 rounded-full bg-yellow-100 dark:bg-gray-600 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
-                            {request.employeeName.charAt(0)}
-                          </div>
-                          <div className="ml-3">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">{request.employeeName}</p>
-                            <p className="text-sm text-yellow-600 dark:text-yellow-400">{request.reason}</p>
-                          </div>
-                        </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(request.startDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-400 text-sm pl-4">No pending approvals</p>
-              )}
-            </div>
-          </div>
-        </div>
+        <Notifications 
+          birthdaysToday={summaryStats?.birthdaysToday || []} 
+          pendingApprovals={Array.isArray(leaveRequests) ? leaveRequests.filter(req => req.status === 'Pending') : []} 
+        />
       </div>
     </div>
   );
+}
+
+function setRecentAnnouncements(recentOnes: any[]) {
+  throw new Error("Function not implemented.");
 }
