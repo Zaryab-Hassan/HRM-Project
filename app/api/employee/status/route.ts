@@ -4,6 +4,55 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import dbConnect from '@/lib/mongodb';
 import Employee from '@/models/Employee';
 
+// Gets an employee's status
+export async function GET(req: Request) {
+  try {
+    await dbConnect();
+
+    // Use NextAuth session for authentication
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    // Get the employee id from the session
+    const employeeId = session.user.id;
+    
+    // Get employee data
+    const employee = await Employee.findById(employeeId).select('-password');
+    if (!employee) {
+      return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
+    }
+
+    // Calculate attendance percentage (dummy data - should be replaced with actual calculation)
+    const attendance = '85%';
+    
+    // Get leaves data
+    const leavesRemaining = employee.leavesRemaining || 20;
+    const leavesTaken = employee.leavesTaken || 0;
+    
+    // Get salary information (dummy data - should be replaced with actual calculation)
+    const salary = employee.salary || 0;
+    const recentPayments = employee.recentPayments || [];
+    
+    return NextResponse.json({
+      success: true,
+      attendance,
+      leavesRemaining,
+      leavesTaken,
+      salary,
+      recentPayments
+    });
+    
+  } catch (error) {
+    console.error('Error fetching employee status:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch employee status' },
+      { status: 500 }
+    );
+  }
+}
+
 // Updates an employee's status
 export async function PUT(req: Request) {
   try {

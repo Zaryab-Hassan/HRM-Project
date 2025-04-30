@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { FiMail, FiSearch, FiUser, FiSave, FiKey } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 
@@ -46,8 +46,14 @@ export default function UserManagement() {
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  
+  // Add clientSide flag to prevent hydration mismatch
+  const [isClient, setIsClient] = useState<boolean>(false);
 
   useEffect(() => {
+    // Mark component as client-side rendered
+    setIsClient(true);
+    
     const fetchEmployees = async () => {
       try {
         setLoading(true);
@@ -70,13 +76,15 @@ export default function UserManagement() {
     fetchEmployees();
   }, []);
 
-  // Filter employees based on search term
-  const filteredEmployees = employees.filter(emp => 
-    emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.cnic?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter employees based on search term - using useMemo to prevent recalculation on every render
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(emp => 
+      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.cnic?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [employees, searchTerm]);
 
   // Handle checkbox selection for password reset
   const handleEmployeeSelection = (id: string) => {
@@ -91,12 +99,18 @@ export default function UserManagement() {
 
   // Update selection when filtered results change
   useEffect(() => {
-    // Remove dependency on selectAll since it's no longer needed
-    // Just keep the necessary code to handle filtering
-    setSelectedEmployees(prev => 
-      prev.filter(id => filteredEmployees.some(emp => emp._id === id))
-    );
-  }, [searchTerm, filteredEmployees]);
+    if (isClient) { // Only run this effect on the client-side
+      // Keep only the employees that are still in filteredEmployees
+      const updatedSelection = selectedEmployees.filter(id => 
+        filteredEmployees.some(emp => emp._id === id)
+      );
+      
+      // Only update if there's an actual change to avoid infinite loops
+      if (JSON.stringify(updatedSelection) !== JSON.stringify(selectedEmployees)) {
+        setSelectedEmployees(updatedSelection);
+      }
+    }
+  }, [isClient, filteredEmployees]); // Remove selectedEmployees from dependencies
 
   const handleAssignLeaves = (id: string, value: string) => {
     setAdditionalLeaves(prev => ({
@@ -307,7 +321,13 @@ export default function UserManagement() {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredEmployees.length === 0 ? (
+                {!isClient ? (
+                  <tr>
+                    <td colSpan={9} className="px-6 py-4 text-center dark:text-white">
+                      Loading...
+                    </td>
+                  </tr>
+                ) : filteredEmployees.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-6 py-4 text-center dark:text-white">
                       {searchTerm ? "No employees found matching your search." : "No employees found in the database."}
@@ -351,7 +371,7 @@ export default function UserManagement() {
                 )}
               </tbody>
             </table>
-            {filteredEmployees.length > directoryDisplayLimit && (
+            {isClient && filteredEmployees.length > directoryDisplayLimit && (
               <div className="flex justify-end mt-4">
                 <button 
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -378,7 +398,7 @@ export default function UserManagement() {
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {loading ? (
+            {loading || !isClient ? (
               <tr>
                 <td colSpan={4} className="px-6 py-4 text-center dark:text-white">
                   <div className="flex justify-center items-center py-4">
@@ -407,7 +427,7 @@ export default function UserManagement() {
             )}
           </tbody>
         </table>
-        {filteredEmployees.length > leavesDisplayLimit && (
+        {isClient && filteredEmployees.length > leavesDisplayLimit && (
           <div className="flex justify-end mt-4">
             <button 
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"

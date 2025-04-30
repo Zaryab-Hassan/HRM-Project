@@ -388,7 +388,8 @@ const LeaveManagement: React.FC = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
                   {filteredLeaveRequests.map(request => (
-                    <tr key={request._id}>                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <tr key={request._id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {new Date(request.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -399,11 +400,14 @@ const LeaveManagement: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {request.endDate}
-                      </td>                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {getStatusBadge(request.status)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">                        {request.status === 'Pending' && (
-                          <button                            onClick={() => handleDelete(request._id)}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {request.status === 'Pending' && (
+                          <button
+                            onClick={() => handleDelete(request._id)}
                             className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                           >
                             Delete

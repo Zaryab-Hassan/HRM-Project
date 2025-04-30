@@ -1,19 +1,9 @@
 // app/payroll-management/page.tsx
 'use client';
 
-import { useState } from 'react';
-import { FiDollarSign, FiFilter, FiEdit, FiCheck, FiX, FiSearch } from 'react-icons/fi';
-
-type EmployeeSalary = {
-  id: number;
-  name: string;
-  position: string;
-  baseSalary: number;
-  bonuses: number;
-  deductions: number;
-  netSalary: number;
-  status: 'Paid' | 'Pending' | 'Processing';
-};
+import { useState, useEffect } from 'react';
+import { FiDollarSign, FiFilter, FiCheck, FiX, FiSearch, FiAlertCircle } from 'react-icons/fi';
+import SalaryRecord, { EmployeeSalary } from '../../../../components/payroll/SalaryRecord';
 
 type LoanApplication = {
   id: number;
@@ -25,14 +15,12 @@ type LoanApplication = {
 };
 
 export default function PayrollManagement() {
-  // Sample salary data
-  const [salaries, setSalaries] = useState<EmployeeSalary[]>([
-    { id: 101, name: 'John Doe', position: 'Manager', baseSalary: 5000, bonuses: 500, deductions: 200, netSalary: 5300, status: 'Paid' },
-    { id: 102, name: 'Jane Smith', position: 'Developer', baseSalary: 4000, bonuses: 300, deductions: 150, netSalary: 4150, status: 'Pending' },
-    { id: 103, name: 'Alex Wong', position: 'Designer', baseSalary: 3500, bonuses: 200, deductions: 100, netSalary: 3600, status: 'Processing' },
-  ]);
-
-  // Sample loan data
+  // State for salary data from API
+  const [salaries, setSalaries] = useState<EmployeeSalary[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Sample loan data (unchanged)
   const [loans, setLoans] = useState<LoanApplication[]>([
     { id: 1, employeeName: 'John Doe', amount: 2000, purpose: 'Home renovation', status: 'Pending', applicationDate: '2023-06-10' },
     { id: 2, employeeName: 'Jane Smith', amount: 1500, purpose: 'Medical expenses', status: 'Approved', applicationDate: '2023-06-05' },
@@ -40,42 +28,139 @@ export default function PayrollManagement() {
 
   const [monthFilter, setMonthFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingSalaryId, setEditingSalaryId] = useState<number | null>(null);
-  const [tempSalary, setTempSalary] = useState<Partial<EmployeeSalary>>({});
 
-  // Filtered salaries
-  const filteredSalaries = salaries.filter(salary => {
-    const matchesSearch = salary.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         salary.id.toString().includes(searchTerm);
-    return matchesSearch;
-  });
+  // Fetch salary data from API
+  useEffect(() => {
+    const fetchSalaryData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const response = await fetch(`/api/payroll?month=${monthFilter}&search=${searchTerm}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch payroll data');
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          // Transform API data to match EmployeeSalary type
+          const transformedData: EmployeeSalary[] = result.data.map((record: any) => ({
+            id: record._id,
+            name: record.name,
+            position: record.position,
+            baseSalary: record.baseSalary,
+            bonuses: record.bonuses,
+            deductions: record.deductions,
+            netSalary: record.netSalary,
+            status: record.status
+          }));
+          
+          setSalaries(transformedData);
+        } else {
+          throw new Error(result.error || 'Failed to fetch data');
+        }
+      } catch (err: any) {
+        setError(err.message);
+        console.error('Error fetching salary data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchSalaryData();
+  }, [monthFilter, searchTerm]);
 
-  const handleEditSalary = (salary: EmployeeSalary) => {
-    setEditingSalaryId(salary.id);
-    setTempSalary({
-      baseSalary: salary.baseSalary,
-      bonuses: salary.bonuses,
-      deductions: salary.deductions
-    });
+  // Handle updating salary record in the database
+  const handleSaveSalary = async (id: number, updates: { baseSalary: number, bonuses: number, deductions: number }) => {
+    try {
+      setError(null);
+      
+      const response = await fetch('/api/payroll', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+          ...updates
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update payroll record');
+      }
+      
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        // Update the local state with the updated record
+        setSalaries(salaries.map(salary => {
+          if (salary.id === id) {
+            const updatedRecord = result.data;
+            return {
+              id: updatedRecord._id,
+              name: updatedRecord.name,
+              position: updatedRecord.position,
+              baseSalary: updatedRecord.baseSalary,
+              bonuses: updatedRecord.bonuses,
+              deductions: updatedRecord.deductions,
+              netSalary: updatedRecord.netSalary,
+              status: updatedRecord.status
+            };
+          }
+          return salary;
+        }));
+      } else {
+        throw new Error(result.error || 'Failed to update record');
+      }
+    } catch (err: any) {
+      setError(err.message);
+      console.error('Error updating salary:', err);
+    }
   };
 
-  const handleSaveSalary = (id: number) => {
-    setSalaries(salaries.map(salary => {
-      if (salary.id === id && tempSalary.baseSalary !== undefined) {
-        const newBase = tempSalary.baseSalary;
-        const newBonuses = tempSalary.bonuses || 0;
-        const newDeductions = tempSalary.deductions || 0;
-        return {
-          ...salary,
-          baseSalary: newBase,
-          bonuses: newBonuses,
-          deductions: newDeductions,
-          netSalary: newBase + newBonuses - newDeductions
-        };
+  // Handle changing salary status
+  const handleChangeStatus = async (id: number, newStatus: 'Paid' | 'Pending' | 'Processing') => {
+    try {
+      setError(null);
+      
+      const response = await fetch('/api/payroll', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+          status: newStatus
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update payroll status');
       }
-      return salary;
-    }));
-    setEditingSalaryId(null);
+      
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        // Update the local state with the updated status
+        setSalaries(salaries.map(salary => {
+          if (salary.id === id) {
+            return {
+              ...salary,
+              status: newStatus
+            };
+          }
+          return salary;
+        }));
+      } else {
+        throw new Error(result.error || 'Failed to update status');
+      }
+    } catch (err: any) {
+      setError(err.message);
+      console.error('Error updating payroll status:', err);
+    }
   };
 
   const handleLoanAction = (id: number, action: 'approve' | 'reject') => {
@@ -111,119 +196,47 @@ export default function PayrollManagement() {
                 onChange={(e) => setMonthFilter(e.target.value)}
               >
                 <option value="All">All Months</option>
-                <option value="June">June 2023</option>
-                <option value="May">May 2023</option>
-                <option value="April">April 2023</option>
+                <option value="January">January</option>
+                <option value="February">February</option>
+                <option value="March">March</option>
+                <option value="April">April</option>
+                <option value="May">May</option>
+                <option value="June">June</option>
+                <option value="July">July</option>
+                <option value="August">August</option>
+                <option value="September">September</option>
+                <option value="October">October</option>
+                <option value="November">November</option>
+                <option value="December">December</option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* Salary Records */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700 mb-8">
-          <div className="p-6 border-b dark:border-gray-700">
-            <h2 className="text-xl font-semibold flex items-center gap-2 dark:text-white">
-              <FiDollarSign className="dark:text-gray-300" /> Salary Records
-            </h2>
+        {/* Error display */}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 dark:bg-red-900 dark:text-red-100 dark:border-red-800">
+            <span className="flex items-center">
+              <FiAlertCircle className="mr-2" /> {error}
+            </span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Employee</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Position</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Base Salary</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Bonuses</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Deductions</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Net Salary</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredSalaries.map(salary => (
-                  <tr key={salary.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap dark:text-white">{salary.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap dark:text-gray-300">{salary.position}</td>
-                    
-                    {/* Editable Salary Fields */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingSalaryId === salary.id ? (
-                        <input
-                          type="number"
-                          className="w-20 p-1 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                          value={tempSalary.baseSalary}
-                          onChange={(e) => setTempSalary({...tempSalary, baseSalary: Number(e.target.value)})}
-                        />
-                      ) : (
-                        <span className="dark:text-white">{salary.baseSalary}</span>
-                      )}
-                    </td>
-                    
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingSalaryId === salary.id ? (
-                        <input
-                          type="number"
-                          className="w-20 p-1 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                          value={tempSalary.bonuses}
-                          onChange={(e) => setTempSalary({...tempSalary, bonuses: Number(e.target.value)})}
-                        />
-                      ) : (
-                        <span className="dark:text-white">{salary.bonuses}</span>
-                      )}
-                    </td>
-                    
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingSalaryId === salary.id ? (
-                        <input
-                          type="number"
-                          className="w-20 p-1 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                          value={tempSalary.deductions}
-                          onChange={(e) => setTempSalary({...tempSalary, deductions: Number(e.target.value)})}
-                        />
-                      ) : (
-                        <span className="dark:text-white">{salary.deductions}</span>
-                      )}
-                    </td>
-                    
-                    <td className="px-6 py-4 whitespace-nowrap font-semibold dark:text-white">
-                      {salary.netSalary}
-                    </td>
-                    
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${salary.status === 'Paid' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 
-                          salary.status === 'Pending' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' : 
-                          'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'}`}>
-                        {salary.status}
-                      </span>
-                    </td>
-                    
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingSalaryId === salary.id ? (
-                        <button
-                          onClick={() => handleSaveSalary(salary.id)}
-                          className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
-                        >
-                          <FiCheck />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleEditSalary(salary)}
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                        >
-                          <FiEdit />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        )}
 
-        {/* Loan Management */}
+        {/* Loading state */}
+        {isLoading ? (
+          <div className="flex justify-center items-center p-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 dark:border-blue-400"></div>
+          </div>
+        ) : (
+          <SalaryRecord 
+            salaries={salaries}
+            onSaveSalary={handleSaveSalary}
+            onChangeStatus={handleChangeStatus}
+            searchTerm={searchTerm}
+          />
+        )}
+
+        {/* Loan Management (unchanged) */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700 mb-8">
           <div className="p-6 border-b dark:border-gray-700">
             <h2 className="text-xl font-semibold flex items-center gap-2 dark:text-white">

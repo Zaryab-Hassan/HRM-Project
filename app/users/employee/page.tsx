@@ -32,7 +32,25 @@ export default function EmployeeDashboard() {
     if (status === 'authenticated') {
       // Fetch employee stats
       fetch('/api/employee/status')
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! Status: ${res.status}`);
+          }
+          return res.text();
+        })
+        .then(text => {
+          // Check if response is empty
+          if (!text || text.trim() === '') {
+            return { success: false };
+          }
+          // Try to parse JSON
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            console.error("Error parsing JSON:", e);
+            return { success: false };
+          }
+        })
         .then(data => {
           if (data.success) {
             setStats({
@@ -48,7 +66,25 @@ export default function EmployeeDashboard() {
 
       // Fetch birthdays
       fetch('/api/employee/birthdays')
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! Status: ${res.status}`);
+          }
+          return res.text();
+        })
+        .then(text => {
+          // Check if response is empty
+          if (!text || text.trim() === '') {
+            return { success: false, birthdaysToday: [] };
+          }
+          // Try to parse JSON
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            console.error("Error parsing JSON:", e);
+            return { success: false, birthdaysToday: [] };
+          }
+        })
         .then(data => {
           if (data.success) {
             setBirthdaysToday(data.birthdaysToday || []);
@@ -57,8 +93,31 @@ export default function EmployeeDashboard() {
         .catch(err => console.error('Error fetching birthdays:', err));
 
       // Fetch employee's leave requests
-      fetch('/api/leave')
-        .then(res => res.json())
+      fetch('/api/leave?source=leaveRequest.db', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! Status: ${res.status}`);
+          }
+          return res.text();
+        })
+        .then(text => {
+          // Check if response is empty
+          if (!text || text.trim() === '') {
+            return [];
+          }
+          // Try to parse JSON
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            console.error("Error parsing JSON:", e);
+            return [];
+          }
+        })
         .then(data => {
           // Handle different response formats
           let requests = [];
@@ -77,6 +136,7 @@ export default function EmployeeDashboard() {
 
           // Get only relevant leave requests (recent and upcoming)
           const relevantRequests = requests.filter((req: any) => {
+            if (!req.endDate) return false;
             const endDate = new Date(req.endDate);
             return endDate >= threeMonthsAgo;
           });
@@ -92,7 +152,25 @@ export default function EmployeeDashboard() {
         
       // Fetch recent announcements (within last 5 days)
       fetch('/api/announcements')
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! Status: ${res.status}`);
+          }
+          return res.text();
+        })
+        .then(text => {
+          // Check if response is empty
+          if (!text || text.trim() === '') {
+            return [];
+          }
+          // Try to parse JSON
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            console.error("Error parsing JSON:", e);
+            return [];
+          }
+        })
         .then(data => {
           // Filter announcements from the past 5 days
           const fiveDaysAgo = new Date();

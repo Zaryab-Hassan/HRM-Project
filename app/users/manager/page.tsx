@@ -17,6 +17,7 @@ import PendingLeaveRequests from "../../../components/PendingLeaveRequests";
 import Notifications from "../../../components/Notifications";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import ManagerSidebar from "@/components/ManagerSidebar";
 
 type SummaryStats = {
   totalEmployees: number;
@@ -202,8 +203,6 @@ export default function ManagerDashboard() {
           const announcementDate = new Date(announcement.date);
           return announcementDate >= fiveDaysAgo;
         });
-        
-        setRecentAnnouncements(recentOnes);
         
         setError('');
       } catch (err) {
@@ -442,42 +441,8 @@ export default function ManagerDashboard() {
   return (
     <div className="flex bg-gray-50 dark:bg-gray-900 min-h-screen overflow-hidden">
       {/* Sidebar */}
-      <div className="fixed w-64 h-full p-4 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-10">
-        <div className="flex items-center mb-8 p-2">
-          <FiHome className="text-2xl mr-3 text-pink-500" />
-          <h1 className="text-xl font-bold text-gray-800 dark:text-white">Manager Dashboard</h1>
-        </div>
-
-        <div className="mb-8">
-          <h2 className="text-sm uppercase font-semibold mb-4 dark:text-gray-300">Quick Actions</h2>
-          <div className="space-y-2">
-            <button 
-              onClick={() => setShowRegistrationModal(true)}
-              className="flex items-center w-full p-3 rounded-lg bg-opacity-10 hover:bg-opacity-20 transition dark:hover:bg-gray-700">
-              <FiUserPlus className="mr-3 text-pink-500" />
-              <span className="dark:text-gray-300">Register Employee</span>
-            </button>
-            
-            <button 
-              onClick={() => setShowLeaveModal(true)}
-              className="flex items-center w-full p-3 rounded-lg bg-opacity-10 hover:bg-opacity-20 transition dark:hover:bg-gray-700">
-              <FiCheck className="mr-3 text-pink-500" />
-              <span className="dark:text-gray-300">Approve Leaves</span>
-            </button>            
-            <button 
-              onClick={() => setShowAnnouncementModal(true)}
-              className="flex items-center w-full p-3 rounded-lg bg-opacity-10 hover:bg-opacity-20 transition dark:hover:bg-gray-700">
-              <FiMail className="mr-3 text-pink-500" />
-              <span className="dark:text-gray-300">Post Announcement</span>
-            </button>
-            <button className="flex items-center w-full p-3 rounded-lg bg-opacity-10 hover:bg-opacity-20 transition dark:hover:bg-gray-700">
-              <FiDollarSign className="mr-3 text-pink-500" />
-              <span className="dark:text-gray-300">Generate Payroll</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
+      <ManagerSidebar/>
+      
       {/* Main content */}
       <div className="flex-1 p-8 ml-64">
         {/* Add Employee Modal */}
@@ -522,7 +487,8 @@ export default function ManagerDashboard() {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Department
-                      </th>                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Role
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -538,7 +504,8 @@ export default function ManagerDashboard() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-300">
                           {employee.department}
-                        </td>                        <td className="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-300">
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-300">
                           {employee.role}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-left text-gray-500 dark:text-gray-300">
@@ -1017,6 +984,4 @@ export default function ManagerDashboard() {
   );
 }
 
-function setRecentAnnouncements(recentOnes: any[]) {
-  throw new Error("Function not implemented.");
-}
+
