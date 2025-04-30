@@ -103,21 +103,6 @@ const ManagerSidebar = () => {
         </div>
       </div>
 
-      {/* Admin Tools */}
-      <div>
-        <h2 className="text-sm uppercase font-semibold mb-3 dark:text-gray-300">Admin</h2>
-        <div className="space-y-1">
-          <Link href="#" className="flex items-center w-full p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition">
-            <FiSettings className="mr-3" />
-            <span>Settings</span>
-          </Link>
-          <Link href="#" className="flex items-center w-full p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition">
-            <FiClipboard className="mr-3" />
-            <span>Reports</span>
-          </Link>
-        </div>
-      </div>
-
       {/* Footer with current date */}
       <div className="absolute bottom-4 left-4 right-4 text-xs text-gray-500 dark:text-gray-400 pt-4 border-t border-gray-200 dark:border-gray-700">
         {new Date().toLocaleDateString('en-US', { 
