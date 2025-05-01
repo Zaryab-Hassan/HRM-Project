@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     if (department !== 'All') {
       // If department filter is applied, join with Employee collection to filter by department
-      const employeesInDepartment = await Employee.find({ department }).select('_id');
+      const employeesInDepartment = await Employee.find({ department, status: { $ne: 'Terminated' } }).select('_id');
       const employeeIds = employeesInDepartment.map(emp => emp._id);
       query.employeeId = { $in: employeeIds };
     }
@@ -40,12 +40,23 @@ export async function GET(request: NextRequest) {
     const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
     const currentYear = currentDate.getFullYear();
     
-    // Fetch records
-    let payrollRecords = await PayrollRecord.find(query).sort({ createdAt: -1 });
+    // Fetch records - exclude records for terminated employees
+    let payrollRecords;
     
-    // If no records found and no specific month filter, create records from employee data
+    // First fetch all active employees to get their IDs
+    const activeEmployees = await Employee.find({ status: { $ne: 'Terminated' } }).select('_id name');
+    const activeEmployeeIds = activeEmployees.map(emp => emp._id);
+    
+    // Add this filter to only get payroll records for active employees
+    const activeEmployeeQuery = { ...query, employeeId: { $in: activeEmployeeIds } };
+    
+    // Now fetch payroll records only for active employees
+    payrollRecords = await PayrollRecord.find(activeEmployeeQuery).sort({ createdAt: -1 });
+    
+    // If no records found and no specific month filter, create records from employee data (only for active employees)
     if (payrollRecords.length === 0 && (month === 'All' || month === currentMonth)) {
-      const employees = await Employee.find({});
+      // Only get active employees
+      const employees = await Employee.find({ status: { $ne: 'Terminated' } });
       
       if (employees.length > 0) {
         const newRecords = employees.map(employee => ({
@@ -62,7 +73,7 @@ export async function GET(request: NextRequest) {
         }));
         
         await PayrollRecord.insertMany(newRecords);
-        payrollRecords = await PayrollRecord.find(query).sort({ createdAt: -1 });
+        payrollRecords = await PayrollRecord.find(activeEmployeeQuery).sort({ createdAt: -1 });
       }
     }
     

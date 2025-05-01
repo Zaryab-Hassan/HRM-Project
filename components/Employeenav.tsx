@@ -25,6 +25,9 @@ const Navbar = () => {
               <Link href="/users/employee/leave">Leave</Link>
             </li>
             <li>
+              <Link href="/users/employee/loan">Loan</Link>
+            </li>
+            <li>
               <Link href="/users/employee/payroll">Payroll</Link>
             </li>
             <li>

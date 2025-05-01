@@ -19,7 +19,14 @@ const ManagerSidebar = () => {
   const router = useRouter();
 
   const navigateWithQuery = (path: string, query: string) => {
-    router.push(`${path}?${query}`);
+    // If we're already on the same path, force a page refresh to ensure the query params are processed
+    if (pathname === path) {
+      // Use window.location to ensure a full page reload with the query parameters
+      window.location.href = `${path}?${query}`;
+    } else {
+      // Use router for other navigations
+      router.push(`${path}?${query}`);
+    }
   };
 
   return (

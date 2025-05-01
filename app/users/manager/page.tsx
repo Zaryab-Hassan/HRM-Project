@@ -217,6 +217,34 @@ export default function ManagerDashboard() {
     }
   }, [status, session]);
 
+  // Check for query parameters on page load to show appropriate modals
+  useEffect(() => {
+    // Get the current URL
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const params = url.searchParams;
+      
+      // Check for modal query parameters - any value will trigger the modal
+      if (params.has('showRegistrationModal')) {
+        setShowRegistrationModal(true);
+      }
+      
+      if (params.has('showLeaveModal')) {
+        setShowLeaveModal(true);
+      }
+      
+      if (params.has('showAnnouncementModal')) {
+        setShowAnnouncementModal(true);
+      }
+      
+      // Optionally clean up the URL after handling the query params
+      if (params.has('showRegistrationModal') || params.has('showLeaveModal') || params.has('showAnnouncementModal')) {
+        // Use history API to update URL without reloading the page
+        window.history.replaceState({}, '', `${url.pathname}`);
+      }
+    }
+  }, []);
+
   // Don't render the dashboard until we confirm the user is a manager
   if (status === "loading" || status === "unauthenticated" || (status === "authenticated" && session?.user?.role !== "manager")) {
     return <div className="flex justify-center items-center min-h-screen">

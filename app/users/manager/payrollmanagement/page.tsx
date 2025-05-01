@@ -6,12 +6,16 @@ import { FiDollarSign, FiFilter, FiCheck, FiX, FiSearch, FiAlertCircle } from 'r
 import SalaryRecord, { EmployeeSalary } from '../../../../components/payroll/SalaryRecord';
 
 type LoanApplication = {
-  id: number;
+  _id: string;
+  employeeId: string;
   employeeName: string;
   amount: number;
   purpose: string;
+  loanType: string;
+  durationMonths: number;
   status: 'Approved' | 'Pending' | 'Rejected';
   applicationDate: string;
+  createdAt: string;
 };
 
 export default function PayrollManagement() {
@@ -20,11 +24,10 @@ export default function PayrollManagement() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Sample loan data (unchanged)
-  const [loans, setLoans] = useState<LoanApplication[]>([
-    { id: 1, employeeName: 'John Doe', amount: 2000, purpose: 'Home renovation', status: 'Pending', applicationDate: '2023-06-10' },
-    { id: 2, employeeName: 'Jane Smith', amount: 1500, purpose: 'Medical expenses', status: 'Approved', applicationDate: '2023-06-05' },
-  ]);
+  // State for loan data from API
+  const [loans, setLoans] = useState<LoanApplication[]>([]);
+  const [isLoadingLoans, setIsLoadingLoans] = useState<boolean>(false);
+  const [loanError, setLoanError] = useState<string | null>(null);
 
   const [monthFilter, setMonthFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,6 +74,38 @@ export default function PayrollManagement() {
     
     fetchSalaryData();
   }, [monthFilter, searchTerm]);
+
+  // Fetch loan applications from API
+  useEffect(() => {
+    const fetchLoanApplications = async () => {
+      try {
+        setIsLoadingLoans(true);
+        setLoanError(null);
+        
+        // Fetch all loan applications from the API
+        const response = await fetch('/api/employee/loans?status=all');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch loan applications');
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          setLoans(result.data);
+        } else {
+          throw new Error(result.error || 'Failed to fetch loan applications');
+        }
+      } catch (err: any) {
+        setLoanError(err.message);
+        console.error('Error fetching loan applications:', err);
+      } finally {
+        setIsLoadingLoans(false);
+      }
+    };
+    
+    fetchLoanApplications();
+  }, []);
 
   // Handle updating salary record in the database
   const handleSaveSalary = async (id: number, updates: { baseSalary: number, bonuses: number, deductions: number }) => {
@@ -163,10 +198,41 @@ export default function PayrollManagement() {
     }
   };
 
-  const handleLoanAction = (id: number, action: 'approve' | 'reject') => {
-    setLoans(loans.map(loan => 
-      loan.id === id ? { ...loan, status: action === 'approve' ? 'Approved' : 'Rejected' } : loan
-    ));
+  const handleLoanAction = async (id: string, action: 'approve' | 'reject') => {
+    try {
+      setLoanError(null);
+      
+      const response = await fetch('/api/employee/loans', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+          status: action === 'approve' ? 'Approved' : 'Rejected'
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to ${action} loan application`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update the local state with the new status
+        setLoans(loans.map(loan => 
+          loan._id === id ? 
+          { ...loan, status: action === 'approve' ? 'Approved' : 'Rejected' } : 
+          loan
+        ));
+      } else {
+        throw new Error(result.error || `Failed to ${action} loan application`);
+      }
+    } catch (err: any) {
+      setLoanError(err.message);
+      console.error(`Error ${action}ing loan application:`, err);
+    }
   };
 
   return (
@@ -236,63 +302,92 @@ export default function PayrollManagement() {
           />
         )}
 
-        {/* Loan Management (unchanged) */}
+        {/* Loan Management */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700 mb-8">
           <div className="p-6 border-b dark:border-gray-700">
             <h2 className="text-xl font-semibold flex items-center gap-2 dark:text-white">
               <FiDollarSign className="dark:text-gray-300" /> Loan Applications
             </h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Employee</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Purpose</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {loans.map(loan => (
-                  <tr key={loan.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap dark:text-white">{loan.employeeName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap dark:text-gray-300">{loan.amount}</td>
-                    <td className="px-6 py-4 whitespace-nowrap dark:text-gray-300">{loan.purpose}</td>
-                    <td className="px-6 py-4 whitespace-nowrap dark:text-gray-300">{new Date(loan.applicationDate).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${loan.status === 'Approved' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 
-                          loan.status === 'Pending' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' : 
-                          'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'}`}>
-                        {loan.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap flex gap-2">
-                      {loan.status === 'Pending' && (
-                        <>
-                          <button
-                            onClick={() => handleLoanAction(loan.id, 'approve')}
-                            className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
-                          >
-                            <FiCheck />
-                          </button>
-                          <button
-                            onClick={() => handleLoanAction(loan.id, 'reject')}
-                            className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
-                          >
-                            <FiX />
-                          </button>
-                        </>
-                      )}
-                    </td>
+          
+          {/* Loan error display */}
+          {loanError && (
+            <div className="mx-6 mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative dark:bg-red-900 dark:text-red-100 dark:border-red-800">
+              <span className="flex items-center">
+                <FiAlertCircle className="mr-2" /> {loanError}
+              </span>
+            </div>
+          )}
+          
+          {/* Loan loading state */}
+          {isLoadingLoans ? (
+            <div className="flex justify-center items-center p-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 dark:border-blue-400"></div>
+            </div>
+          ) : loans.length === 0 ? (
+            <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+              No loan applications found
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Employee</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Purpose</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Duration</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {loans.map(loan => (
+                    <tr key={loan._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap dark:text-white">{loan.employeeName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap dark:text-gray-300">${loan.amount.toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap dark:text-gray-300 capitalize">{loan.loanType}</td>
+                      <td className="px-6 py-4 whitespace-nowrap dark:text-gray-300">{loan.purpose}</td>
+                      <td className="px-6 py-4 whitespace-nowrap dark:text-gray-300">{loan.durationMonths} months</td>
+                      <td className="px-6 py-4 whitespace-nowrap dark:text-gray-300">
+                        {new Date(loan.createdAt || loan.applicationDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                          ${loan.status === 'Approved' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 
+                            loan.status === 'Pending' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' : 
+                            'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'}`}>
+                          {loan.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap flex gap-2">
+                        {loan.status === 'Pending' && (
+                          <>
+                            <button
+                              onClick={() => handleLoanAction(loan._id, 'approve')}
+                              className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
+                              title="Approve loan"
+                            >
+                              <FiCheck />
+                            </button>
+                            <button
+                              onClick={() => handleLoanAction(loan._id, 'reject')}
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                              title="Reject loan"
+                            >
+                              <FiX />
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -31,12 +31,13 @@ export async function GET(req: Request) {
     const leavesRemaining = employee.leavesRemaining || 20;
     const leavesTaken = employee.leavesTaken || 0;
     
-    // Get salary information (dummy data - should be replaced with actual calculation)
-    const salary = employee.salary || 0;
+    // Get salary information (using currentSalary from employee model)
+    const salary = employee.currentSalary || 0;
     const recentPayments = employee.recentPayments || [];
     
     return NextResponse.json({
       success: true,
+      status: employee.status, // Include the employee's status in the response
       attendance,
       leavesRemaining,
       leavesTaken,

@@ -407,7 +407,10 @@ export default function UserManagement() {
                 </td>
               </tr>
             ) : (
-              filteredEmployees.slice(0, leavesDisplayLimit).map(emp => (
+              filteredEmployees
+                .filter(emp => emp.status !== 'Terminated') // Filter out terminated employees
+                .slice(0, leavesDisplayLimit)
+                .map(emp => (
                 <tr key={emp._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-6 py-4 dark:text-white">{emp.name}</td>
                   <td className="px-6 py-4 dark:text-white">{emp.totalLeaves || 14}</td>
@@ -427,7 +430,7 @@ export default function UserManagement() {
             )}
           </tbody>
         </table>
-        {isClient && filteredEmployees.length > leavesDisplayLimit && (
+        {isClient && filteredEmployees.filter(emp => emp.status !== 'Terminated').length > leavesDisplayLimit && (
           <div className="flex justify-end mt-4">
             <button 
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
