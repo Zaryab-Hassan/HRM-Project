@@ -8,7 +8,7 @@ import Manager from '@/models/Manager';
 // Get a specific leave request
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {  
   try {
     await dbConnect();
@@ -22,30 +22,30 @@ export async function GET(
     const userId = session.user.email;
     const userRole = session.user.role;
 
-    const request = await LeaveRequest.findById(context.params.id)
+    const leaveRequest = await LeaveRequest.findById(params.id)
       .populate('employeeId', 'name email')
       .populate('approvedBy', 'name email');
 
-    if (!request) {
+    if (!leaveRequest) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 });
     }
 
     // Check if user has permission to view this request
     if (
       userRole === 'employee' &&
-      request.employeeId.toString() !== userId
+      leaveRequest.employeeId.toString() !== userId
     ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     if (userRole === 'manager') {
       const manager = await Manager.findById(userId);
-      if (!manager.team.includes(request.employeeId)) {
+      if (!manager.team.includes(leaveRequest.employeeId)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
 
-    return NextResponse.json(request);
+    return NextResponse.json(leaveRequest);
   } catch (error) {
     console.error('Error fetching leave request:', error);
     return NextResponse.json(
@@ -58,7 +58,7 @@ export async function GET(
 // Update a leave request (approve/reject)
 export async function PUT(
   req: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {  
   try {
     await dbConnect();
@@ -86,7 +86,7 @@ export async function PUT(
       );
     }
 
-    const leaveRequest = await LeaveRequest.findById(context.params.id);
+    const leaveRequest = await LeaveRequest.findById(params.id);
     
     if (!leaveRequest) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 });
@@ -118,7 +118,7 @@ export async function PUT(
 // Delete a leave request
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {  
   try {
     await dbConnect();
@@ -132,7 +132,7 @@ export async function DELETE(
     const userId = session.user.email;
     const userRole = session.user.role;
 
-    const request = await LeaveRequest.findById(context.params.id);
+    const request = await LeaveRequest.findById(params.id);
     
     if (!request) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 });
@@ -148,7 +148,7 @@ export async function DELETE(
       }
     }
 
-    await LeaveRequest.findByIdAndDelete(context.params.id);
+    await LeaveRequest.findByIdAndDelete(params.id);
 
     return NextResponse.json({ message: 'Request deleted successfully' });
   } catch (error) {
