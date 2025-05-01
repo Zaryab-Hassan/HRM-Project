@@ -1,11 +1,13 @@
-import NextAuth from 'next-auth';
+import NextAuth, { AuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import Employee from '@/models/Employee';
 import Manager from '@/models/Manager';
 import Admin from '@/models/Admin';
 import connectToDatabase from '@/lib/mongodb';
+import { JWT } from "next-auth/jwt";
+import { Session } from "next-auth";
 
-export const authOptions = {
+export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || 'your-secret-key',
   providers: [
     CredentialsProvider({
@@ -13,7 +15,8 @@ export const authOptions = {
       credentials: {
         email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" }
-      },      async authorize(credentials: { email: string; password: string } | undefined) {
+      },      
+      async authorize(credentials: { email: string; password: string } | undefined) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Please provide email and password');
         }
@@ -52,17 +55,18 @@ export const authOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user }: { token: any, user: any }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
       }
       return token;
     },
-    async session({ session, token }: { session: any, token: any }) {
+    async session({ session, token }: { session: Session, token: JWT }) {
       if (session.user) {
-        session.user.id = token.id;
-        session.user.role = token.role;
+        // Type assertion to add custom properties
+        (session.user as any).id = token.id;
+        session.user.role = token.role as string | null;
       }
       return session;
     }
@@ -71,7 +75,7 @@ export const authOptions = {
     signIn: '/login',
   },
   session: {
-    strategy: 'jwt' as 'jwt',
+    strategy: "jwt",
   }
 };
 
