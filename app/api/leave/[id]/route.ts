@@ -8,8 +8,10 @@ import Manager from '@/models/Manager';
 // Get a specific leave request
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {  
+  context: { params: { id: string } }
+) {
+  const { id } = context.params;
+  
   try {
     await dbConnect();
     
@@ -18,11 +20,10 @@ export async function GET(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    // Extract user details from session
     const userId = session.user.email;
     const userRole = session.user.role;
 
-    const leaveRequest = await LeaveRequest.findById(params.id)
+    const leaveRequest = await LeaveRequest.findById(id)
       .populate('employeeId', 'name email')
       .populate('approvedBy', 'name email');
 
@@ -30,11 +31,7 @@ export async function GET(
       return NextResponse.json({ error: 'Request not found' }, { status: 404 });
     }
 
-    // Check if user has permission to view this request
-    if (
-      userRole === 'employee' &&
-      leaveRequest.employeeId.toString() !== userId
-    ) {
+    if (userRole === 'employee' && leaveRequest.employeeId.toString() !== userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -48,10 +45,7 @@ export async function GET(
     return NextResponse.json(leaveRequest);
   } catch (error) {
     console.error('Error fetching leave request:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
