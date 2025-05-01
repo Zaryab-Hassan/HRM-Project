@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import dbConnect from '@/lib/mongodb';
 import Employee from '@/models/Employee';
 
@@ -20,10 +20,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Access denied: Employee access only' }, { status: 403 });
     }
     
-    const employeeId = session.user.id;
+    const userEmail = session.user.email;
 
-    // Find employee by ID, excluding sensitive fields like password
-    const employee = await Employee.findById(employeeId).select('-password');
+    // Find employee by email, excluding sensitive fields like password
+    const employee = await Employee.findOne({ email: userEmail }).select('-password');
 
     if (!employee) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
@@ -59,7 +59,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Access denied: Employee access only' }, { status: 403 });
     }
     
-    const employeeId = session.user.id;
+    const userEmail = session.user.email;
 
     // Get the form data
     const formData = await req.formData();
@@ -79,7 +79,7 @@ export async function PATCH(req: Request) {
       // In a real app, you would upload to a service like AWS S3, Cloudinary, etc.
       // and get back a URL to store
       console.log(`Profile picture received: ${profilePicture.name}, size: ${profilePicture.size}`);
-      profilePictureUrl = `/uploads/profiles/${employeeId}-${Date.now()}-${profilePicture.name}`;
+      profilePictureUrl = `/uploads/profiles/${userEmail}-${Date.now()}-${profilePicture.name}`;
     }
 
     // Update the employee record
@@ -89,8 +89,8 @@ export async function PATCH(req: Request) {
     if (emergencyContact) updateFields.emergencyContact = emergencyContact;
     if (profilePictureUrl) updateFields.profilePicture = profilePictureUrl;
     
-    const updatedEmployee = await Employee.findByIdAndUpdate(
-      employeeId,
+    const updatedEmployee = await Employee.findOneAndUpdate(
+      { email: userEmail },
       { $set: updateFields },
       { new: true, runValidators: true }
     ).select('-password');

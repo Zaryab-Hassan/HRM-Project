@@ -43,23 +43,34 @@ export default function MyAttendanceRecords({ loading }: MyAttendanceRecordsProp
       setError(null);
       
       try {
-        // Format dates for the API call
+        // Make sure dates are in YYYY-MM-DD format without time component
         const formattedStartDate = startDate;
         const formattedEndDate = endDate;
         
-        // Fetch attendance records from API
-        const response = await fetch(`/api/employee/attendance?startDate=${formattedStartDate}&endDate=${formattedEndDate}`);
+        // Add content type header and ensure proper URL encoding
+        const response = await fetch(
+          `/api/employee/attendance?startDate=${encodeURIComponent(formattedStartDate)}&endDate=${encodeURIComponent(formattedEndDate)}`,
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
         
         if (!response.ok) {
           if (response.status === 401) {
-            // Handle authentication error
             router.push('/?error=Session expired. Please login again.');
             return;
           }
-          throw new Error('Failed to fetch attendance records');
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch attendance records');
         }
         
         const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to fetch attendance records');
+        }
         
         // Process the attendance records
         const formattedRecords = (data.data || []).map((record: any) => {

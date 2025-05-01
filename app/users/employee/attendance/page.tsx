@@ -45,7 +45,12 @@ export default function AttendancePage() {
     try {
       setLoading(true);
       setError(null);  // Reset error state
-      const response = await fetch('/api/employee/attendance', {
+      
+      // Get today's date in YYYY-MM-DD format for the API
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Make request with date parameter to get today's record specifically
+      const response = await fetch(`/api/employee/attendance?date=${today}`, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -64,8 +69,7 @@ export default function AttendancePage() {
       
       const data = await response.json();
       
-      // Find today's record to determine clock in/out status
-      const today = new Date().toISOString().split('T')[0];
+      // Look for today's attendance record
       const todayRecord = data.data.find((record: any) => 
         new Date(record.date).toISOString().split('T')[0] === today
       );

@@ -4,7 +4,7 @@ import Employee from "@/models/Employee";
 import LeaveRequest from "@/models/LeaveRequest";
 import Manager from "@/models/Manager";
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 
 export async function GET() {
     try {
@@ -22,7 +22,7 @@ export async function GET() {
         }
         
         // Get manager's team first since we need it for multiple queries
-        const manager = await Manager.findById(session.user.id).populate('team');
+        const manager = await Manager.findOne({ email: session.user.email }).populate('team');
         if (!manager) {
             return NextResponse.json({ error: "Manager not found" }, { status: 404 });
         }

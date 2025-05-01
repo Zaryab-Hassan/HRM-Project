@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import mongoose from 'mongoose';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import connectToDatabase from '@/lib/mongodb';
+import Employee from '@/models/Employee';
 
 // Define the loan application schema (this would typically be in its own model file)
 const LoanSchema = new mongoose.Schema({
@@ -81,6 +82,16 @@ export async function GET(req: NextRequest) {
     // Connect to MongoDB
     await connectToDatabase();
     
+    // Get employee ObjectId if not manager/hr
+    let employeeId;
+    if (session.user.role === 'employee') {
+      const employee = await Employee.findOne({ email: session.user.email });
+      if (!employee) {
+        return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
+      }
+      employeeId = employee._id;
+    }
+    
     // Different behavior based on user role
     const isManager = session.user.role === 'manager' || session.user.role === 'hr';
     
@@ -100,7 +111,7 @@ export async function GET(req: NextRequest) {
       }
     } else {
       // Regular employees can only see their own applications
-      query.employeeId = session.user.id;
+      query.employeeId = employeeId;
     }
     
     // Add year filter if provided
@@ -139,12 +150,12 @@ export async function GET(req: NextRequest) {
     let balanceStats = null;
     if (!isManager) {
       const approved = await LoanApplication.aggregate([
-        { $match: { employeeId: new mongoose.Types.ObjectId(session.user.id), status: 'Approved' } },
+        { $match: { employeeId: employeeId, status: 'Approved' } },
         { $group: { _id: null, total: { $sum: '$amount' } } }
       ]);
       
       const paid = await LoanApplication.aggregate([
-        { $match: { employeeId: new mongoose.Types.ObjectId(session.user.id), status: 'Paid' } },
+        { $match: { employeeId: employeeId, status: 'Paid' } },
         { $group: { _id: null, total: { $sum: '$amount' } } }
       ]);
       
@@ -199,9 +210,15 @@ export async function POST(req: NextRequest) {
     // Connect to MongoDB
     await connectToDatabase();
     
+    // Get employee by email to get the ObjectId
+    const employee = await Employee.findOne({ email: session.user.email });
+    if (!employee) {
+      return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
+    }
+    
     // Create new loan application
     const newLoanApplication = new LoanApplication({
-      employeeId: session.user.id,
+      employeeId: employee._id,
       loanType,
       amount,
       reason,
@@ -253,6 +270,12 @@ export async function DELETE(req: NextRequest) {
     // Connect to MongoDB
     await connectToDatabase();
     
+    // Get employee by email
+    const employee = await Employee.findOne({ email: session.user.email });
+    if (!employee) {
+      return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
+    }
+    
     // Find the loan application
     const loanApplication = await LoanApplication.findById(id);
     
@@ -265,7 +288,7 @@ export async function DELETE(req: NextRequest) {
     }
     
     // Check if the loan application belongs to the current user
-    if (loanApplication.employeeId.toString() !== session.user.id) {
+    if (loanApplication.employeeId.toString() !== employee._id.toString()) {
       return NextResponse.json(
         { success: false, error: 'You are not authorized to delete this loan application' },
         { status: 403 }
@@ -323,7 +346,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Loan ID and status are required' },
         { status: 400 }
-      );
+      ); 
     }
     
     // Status must be either Approved or Rejected

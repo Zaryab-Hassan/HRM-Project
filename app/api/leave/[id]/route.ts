@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import dbConnect from '@/lib/mongodb';
 import LeaveRequest from '@/models/LeaveRequest';
 import Manager from '@/models/Manager';
@@ -18,7 +18,7 @@ export async function GET(
     }
 
     // Extract user details from session
-    const userId = session.user.id;
+    const userId = session.user.email;
     const userRole = session.user.role;
 
     const request = await LeaveRequest.findById(params.id)
@@ -67,8 +67,8 @@ export async function PUT(
     }
 
     // Extract user details from session
-    const userId = session.user.id;
-    const userRole = session.user.role;
+    const userId = session.user.email;
+    const userRole = session.user.role || '';
 
     if (!['manager', 'hr'].includes(userRole)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -126,7 +126,7 @@ export async function DELETE(
     }
 
     // Extract user details from session
-    const userId = session.user.id;
+    const userId = session.user.email;
     const userRole = session.user.role;
 
     const request = await LeaveRequest.findById(params.id);

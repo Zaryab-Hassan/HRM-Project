@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import dbConnect from '@/lib/mongodb';
 import Employee from '@/models/Employee';
 import Manager from '@/models/Manager';
@@ -60,7 +60,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     
-    const userId = session.user.id;
+    const userEmail = session.user.email;
     const userRole = session.user.role;
     
     // Parse the request URL to get query parameters
@@ -93,7 +93,7 @@ export async function GET(req: Request) {
     }
     // For employees, fetch only their own data
     else if (userRole === 'employee') {
-      const employee = await Employee.findById(userId)
+      const employee = await Employee.findOne({ email: userEmail })
         .select('-password');
         
       if (employee) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '../../auth/[...nextauth]/options';
 import dbConnect from '@/lib/mongodb';
 import Employee from '@/models/Employee';
 
@@ -32,6 +32,8 @@ export async function GET(req: Request) {
     // Parse URL and get query parameters
     const url = new URL(req.url);
     const dateParam = url.searchParams.get('date');
+    const startDateParam = url.searchParams.get('startDate');
+    const endDateParam = url.searchParams.get('endDate');
     const employeeIdParam = url.searchParams.get('employeeId');
     
     // Get session for authentication
@@ -94,20 +96,36 @@ export async function GET(req: Request) {
     }
     
     // For single employee attendance records
-    let employeeId = session.user.id;
+    let employeeEmail = session.user.email;
     
     // Allow managers to query specific employee's data
     if (employeeIdParam && session.user.role === 'manager') {
-      employeeId = employeeIdParam;
+      // For managers, the employeeIdParam could be either an email or ObjectId
+      // We'll handle it as an email for consistency
+      employeeEmail = employeeIdParam;
     } else if (session.user.role !== 'employee' && !employeeIdParam) {
       // Only employees can see their own records without specifying an ID
       return NextResponse.json({ error: 'Employee ID required' }, { status: 400 });
     }
     
-    const { firstDay, lastDay } = getCurrentMonthDateRange();
+    // Default date range is current month
+    let { firstDay, lastDay } = getCurrentMonthDateRange();
     
-    // Find employee and their attendance records
-    const employee = await Employee.findById(employeeId);
+    // If start and end date parameters are provided, use them instead
+    if (startDateParam && endDateParam) {
+      const startDate = safeDateParse(startDateParam);
+      let endDate = safeDateParse(endDateParam);
+      
+      if (startDate && endDate) {
+        // Set end date to end of the day
+        endDate = new Date(endDate.setHours(23, 59, 59, 999));
+        firstDay = startDate;
+        lastDay = endDate;
+      }
+    }
+    
+    // Find employee by email instead of ID
+    const employee = await Employee.findOne({ email: employeeEmail });
     
     if (!employee) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
@@ -119,7 +137,7 @@ export async function GET(req: Request) {
       await employee.save();
     }
     
-    // Filter attendance records based on date parameter or default to current month
+    // Filter attendance records based on date parameter or date range
     let filteredAttendance;
     if (dateParam) {
       const requestedDate = new Date(dateParam);
@@ -134,7 +152,7 @@ export async function GET(req: Request) {
                recordDate < nextDay;
       });
     } else {
-      // Default: filter for current month
+      // Filter based on date range (either provided or default)
       filteredAttendance = employee.attendance.filter((record: any) => {
         if (!record || !record.date) return false;
         const recordDate = safeDateParse(record.date);
@@ -176,7 +194,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Access denied: Employee access only' }, { status: 403 });
     }
 
-    const employeeId = session.user.id;
+    const employeeEmail = session.user.email;
 
     // Parse request body
     let body;
@@ -195,8 +213,8 @@ export async function POST(req: Request) {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0]; // Format: YYYY-MM-DD
 
-    // Find and validate employee
-    const employee = await Employee.findById(employeeId);
+    // Find and validate employee by email instead of ID
+    const employee = await Employee.findOne({ email: employeeEmail });
     if (!employee) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }

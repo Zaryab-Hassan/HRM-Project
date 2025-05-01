@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 const JWT_SECRET = process.env.JWT_SECRET || 'secret'; // Use process.env instead of env
 import dbConnect from '@/lib/mongodb';
 import LeaveRequest from '@/models/LeaveRequest';
