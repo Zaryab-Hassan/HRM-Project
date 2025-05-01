@@ -1,13 +1,12 @@
-import NextAuth, { AuthOptions } from 'next-auth';
+import NextAuth from 'next-auth';
+import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import Employee from '@/models/Employee';
 import Manager from '@/models/Manager';
 import Admin from '@/models/Admin';
 import connectToDatabase from '@/lib/mongodb';
-import { JWT } from "next-auth/jwt";
-import { Session } from "next-auth";
 
-export const authOptions: AuthOptions = {
+export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || 'your-secret-key',
   providers: [
     CredentialsProvider({
@@ -46,7 +45,7 @@ export const authOptions: AuthOptions = {
         if (admin) role = 'hr';
 
         return {
-          id: user._id,
+          id: user._id.toString(),
           email: user.email,
           name: user.name,
           role: role
@@ -62,9 +61,8 @@ export const authOptions: AuthOptions = {
       }
       return token;
     },
-    async session({ session, token }: { session: Session, token: JWT }) {
+    async session({ session, token }) {
       if (session.user) {
-        // Type assertion to add custom properties
         (session.user as any).id = token.id;
         session.user.role = token.role as string | null;
       }
