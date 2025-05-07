@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { FiSearch, FiAlertTriangle, FiInfo, FiBell } from 'react-icons/fi';
 
 type Announcement = {
@@ -12,7 +12,8 @@ type Announcement = {
   category: string;
 };
 
-const AnnouncementsPage = () => {
+// Client component for the actual announcements content
+const AnnouncementsContent = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +162,31 @@ const AnnouncementsPage = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+// Main page component with Suspense boundary
+const AnnouncementsPage = () => {
+  return (
+    <Suspense fallback={
+      <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="w-full max-w-7xl mx-auto">
+          <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Company Announcements</h1>
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="animate-pulse bg-gray-50 dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-3"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    }>
+      <AnnouncementsContent />
+    </Suspense>
   );
 };
 

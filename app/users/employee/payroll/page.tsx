@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { FiCreditCard, FiDownload, FiFilter, FiCalendar, FiAlertCircle, FiCheck, FiClock } from 'react-icons/fi';
 
 // Update the PayrollRecord type to include the descriptions
@@ -19,7 +19,8 @@ type PayrollRecord = {
   status: string;
 };
 
-export default function EmployeePayroll() {
+// Create a component for the payroll content
+function PayrollContent() {
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
   const [isLoading, setIsLoading] = useState(true);
@@ -520,5 +521,18 @@ export default function EmployeePayroll() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Wrap the main component export with Suspense boundary
+export default function EmployeePayroll() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 dark:border-blue-400"></div>
+      </div>
+    }>
+      <PayrollContent />
+    </Suspense>
   );
 }
