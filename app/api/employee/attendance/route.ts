@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../auth/[...nextauth]/options';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import dbConnect from '@/lib/mongodb';
 import Employee from '@/models/Employee';
+
+// Define session types with extended properties to match our app requirements
+interface ExtendedSession {
+  user?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+    role?: string;
+  }
+}
 
 // Function to get the current month's date range
 function getCurrentMonthDateRange() {
@@ -36,14 +47,18 @@ export async function GET(req: Request) {
     const endDateParam = url.searchParams.get('endDate');
     const employeeIdParam = url.searchParams.get('employeeId');
     
-    // Get session for authentication
+    // Use the proper way to get the session object that's compatible with your Next.js version
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    // Cast the session only after retrieving it
+    const extendedSession = session as unknown as ExtendedSession;
+
+    // Check if user is authenticated
+    if (!extendedSession || !extendedSession.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     
     // For managers querying all employees' attendance by date
-    if (dateParam && session.user.role === 'manager') {
+    if (dateParam && extendedSession.user?.role === 'manager') {
       // Parse the date parameter
       const requestedDate = new Date(dateParam);
       const nextDay = new Date(requestedDate);
@@ -96,16 +111,35 @@ export async function GET(req: Request) {
     }
     
     // For single employee attendance records
-    let employeeEmail = session.user.email;
+    let employee;
     
-    // Allow managers to query specific employee's data
-    if (employeeIdParam && session.user.role === 'manager') {
-      // For managers, the employeeIdParam could be either an email or ObjectId
-      // We'll handle it as an email for consistency
-      employeeEmail = employeeIdParam;
-    } else if (session.user.role !== 'employee' && !employeeIdParam) {
-      // Only employees can see their own records without specifying an ID
-      return NextResponse.json({ error: 'Employee ID required' }, { status: 400 });
+    // Check if employee ID is provided in the query params
+    if (employeeIdParam) {
+      // Try to find employee by ID
+      employee = await Employee.findById(employeeIdParam);
+      
+      // If ID lookup failed, try by email (for backward compatibility)
+      if (!employee) {
+        employee = await Employee.findOne({ email: employeeIdParam });
+      }
+      
+      // If not a manager or HR, ensure the user can only access their own data
+      if (extendedSession.user?.role !== 'manager' && extendedSession.user?.role !== 'hr') {
+        const userEmail = extendedSession.user?.email;
+        const userEmployee = await Employee.findOne({ email: userEmail });
+        
+        if (!userEmployee || userEmployee._id.toString() !== employee?._id.toString()) {
+          return NextResponse.json({ error: 'Access denied: You can only view your own attendance records' }, { status: 403 });
+        }
+      }
+    } else {
+      // No employee ID provided, use the logged in user's email
+      const userEmail = extendedSession.user?.email;
+      employee = await Employee.findOne({ email: userEmail });
+    }
+    
+    if (!employee) {
+      return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
     
     // Default date range is current month
@@ -122,13 +156,6 @@ export async function GET(req: Request) {
         firstDay = startDate;
         lastDay = endDate;
       }
-    }
-    
-    // Find employee by email instead of ID
-    const employee = await Employee.findOne({ email: employeeEmail });
-    
-    if (!employee) {
-      return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
     
     // Ensure attendance array exists
@@ -183,18 +210,16 @@ export async function POST(req: Request) {
   try {
     await dbConnect();
 
-    // Use NextAuth session for authentication
-    const session = await getServerSession(authOptions);
+    // Use NextAuth session for authentication with type assertion
+    const session = await getServerSession(authOptions) as ExtendedSession;
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    // Ensure user is an employee
-    if (session.user.role !== 'employee') {
-      return NextResponse.json({ error: 'Access denied: Employee access only' }, { status: 403 });
+    // Ensure user is an employee or HR
+    if (session.user.role !== 'employee' && session.user.role !== 'hr') {
+      return NextResponse.json({ error: 'Access denied: Only employees and HR can clock in/out' }, { status: 403 });
     }
-
-    const employeeEmail = session.user.email;
 
     // Parse request body
     let body;
@@ -204,7 +229,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
     }
 
-    const { action } = body;
+    const { action, employeeId } = body;
     
     if (!action || !['clock-in', 'clock-out'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action: must be clock-in or clock-out' }, { status: 400 });
@@ -213,8 +238,18 @@ export async function POST(req: Request) {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0]; // Format: YYYY-MM-DD
 
-    // Find and validate employee by email instead of ID
-    const employee = await Employee.findOne({ email: employeeEmail });
+    // Find employee - either by ID (if provided) or by email from session
+    let employee;
+    
+    if (employeeId) {
+      // If employee ID is provided in the request body, use it (for HR users clocking in/out)
+      employee = await Employee.findById(employeeId);
+    } else {
+      // Otherwise use the logged in user's email
+      const employeeEmail = session.user.email;
+      employee = await Employee.findOne({ email: employeeEmail });
+    }
+    
     if (!employee) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }

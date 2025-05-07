@@ -4,7 +4,7 @@ import { signOut } from "next-auth/react";
 import { FiLogOut } from "react-icons/fi";
 import { usePathname } from "next/navigation";
 
-const Navbar = () => {
+const Hrnav = () => {
   const pathname = usePathname();
   
   const handleLogout = async () => {
@@ -58,4 +58,4 @@ const Navbar = () => {
   );
 };
 
-export default Navbar;
+export default Hrnav;

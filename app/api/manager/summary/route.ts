@@ -3,7 +3,7 @@ import connectToDatabase from "@/lib/mongodb";
 import Employee from "@/models/Employee";
 import LeaveRequest from "@/models/LeaveRequest";
 import Manager from "@/models/Manager";
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 
 export async function GET() {

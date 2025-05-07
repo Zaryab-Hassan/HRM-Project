@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { FiDollarSign, FiClock, FiCheck, FiX, FiCalendar } from 'react-icons/fi';
+import { FiCreditCard, FiClock, FiCheck, FiX, FiCalendar } from 'react-icons/fi';
 
 type LoanStatus = 'Pending' | 'Approved' | 'Rejected' | 'Paid';
 type LoanType = 'personal' | 'education' | 'medical' | 'housing' | 'emergency';
@@ -14,7 +14,6 @@ interface LoanApplication {
   amount: number;
   reason: string;
   durationMonths: number;
-  interestRate: number;
   monthlyInstallment: number;
   status: LoanStatus;
   approvedAt?: string;
@@ -23,13 +22,9 @@ interface LoanApplication {
 }
 
 // Simple calculator to estimate monthly payment
-const calculateMonthlyInstallment = (amount: number, interestRate: number, durationMonths: number): number => {
-  // Convert annual interest rate to monthly decimal rate
-  const monthlyRate = interestRate / 100 / 12;
-  // Calculate monthly payment using loan formula
-  if (monthlyRate === 0) return amount / durationMonths;
-  return (amount * monthlyRate * Math.pow(1 + monthlyRate, durationMonths)) / 
-         (Math.pow(1 + monthlyRate, durationMonths) - 1);
+const calculateMonthlyInstallment = (amount: number, durationMonths: number): number => {
+  // Simply divide the amount by duration with no interest
+  return amount / durationMonths;
 };
 
 const LoanApplicationPage: React.FC = () => {
@@ -47,21 +42,11 @@ const LoanApplicationPage: React.FC = () => {
     totalPaid: 3000
   });
 
-  // Interest rates for different loan types (these would come from API in a real app)
-  const interestRates: Record<LoanType, number> = {
-    personal: 8.5,
-    education: 5.0,
-    medical: 4.5,
-    housing: 6.5,
-    emergency: 7.0
-  };
-
   const [newLoan, setNewLoan] = useState<Omit<LoanApplication, '_id' | 'createdAt' | 'employeeId' | 'status' | 'approvedAt' | 'monthlyInstallment'>>({
     loanType: 'personal',
     amount: 0,
     reason: '',
     durationMonths: 12,
-    interestRate: interestRates.personal,
     startDate: undefined,
     endDate: undefined
   });
@@ -72,12 +57,12 @@ const LoanApplicationPage: React.FC = () => {
     // Calculate estimated monthly payment when loan details change
     if (newLoan.amount > 0 && newLoan.durationMonths > 0) {
       setEstimatedPayment(
-        calculateMonthlyInstallment(newLoan.amount, newLoan.interestRate, newLoan.durationMonths)
+        calculateMonthlyInstallment(newLoan.amount, newLoan.durationMonths)
       );
     } else {
       setEstimatedPayment(0);
     }
-  }, [newLoan.amount, newLoan.interestRate, newLoan.durationMonths]);
+  }, [newLoan.amount, newLoan.durationMonths]);
 
   useEffect(() => {
     const fetchLoanApplications = async () => {
@@ -120,19 +105,10 @@ const LoanApplicationPage: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
-    if (name === 'loanType') {
-      // Update interest rate when loan type changes
-      setNewLoan(prev => ({
-        ...prev,
-        [name]: value as LoanType,
-        interestRate: interestRates[value as LoanType]
-      }));
-    } else {
-      setNewLoan(prev => ({
-        ...prev,
-        [name]: name === 'amount' || name === 'durationMonths' ? Number(value) : value
-      }));
-    }
+    setNewLoan(prev => ({
+      ...prev,
+      [name]: name === 'amount' || name === 'durationMonths' ? Number(value) : value
+    }));
     
     // Clear submit error when user starts typing
     if (submitError) {
@@ -188,7 +164,6 @@ const LoanApplicationPage: React.FC = () => {
         amount: 0,
         reason: '',
         durationMonths: 12,
-        interestRate: interestRates.personal,
         startDate: undefined,
         endDate: undefined
       });
@@ -201,6 +176,20 @@ const LoanApplicationPage: React.FC = () => {
   };
 
   const handleDeleteApplication = async (id: string) => {
+    // Find the application to check its status
+    const application = loanApplications.find(app => app._id === id);
+    
+    if (!application) {
+      alert('Loan application not found');
+      return;
+    }
+    
+    // Only allow deleting pending applications
+    if (application.status !== 'Pending') {
+      alert('Only pending loan applications can be deleted');
+      return;
+    }
+    
     try {
       // Call the actual API endpoint
       const response = await fetch(`/api/employee/loans?id=${id}`, {
@@ -254,10 +243,10 @@ const LoanApplicationPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium text-gray-700 dark:text-gray-300">Outstanding Balance</h3>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">${loanBalance.totalOutstanding.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">PKR {loanBalance.totalOutstanding.toLocaleString()}</p>
                 </div>
                 <div className="rounded-full bg-red-100 p-3 dark:bg-red-900">
-                  <FiDollarSign className="text-red-600 dark:text-red-400" />
+                  <FiCreditCard className="text-red-600 dark:text-red-400" />
                 </div>
               </div>
             </div>
@@ -265,10 +254,10 @@ const LoanApplicationPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium text-gray-700 dark:text-gray-300">Total Approved</h3>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">${loanBalance.totalApproved.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">PKR {loanBalance.totalApproved.toLocaleString()}</p>
                 </div>
                 <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900">
-                  <FiDollarSign className="text-blue-600 dark:text-blue-400" />
+                  <FiCreditCard className="text-blue-600 dark:text-blue-400" />
                 </div>
               </div>
             </div>
@@ -276,10 +265,10 @@ const LoanApplicationPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium text-gray-700 dark:text-gray-300">Total Paid</h3>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">${loanBalance.totalPaid.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">PKR {loanBalance.totalPaid.toLocaleString()}</p>
                 </div>
                 <div className="rounded-full bg-green-100 p-3 dark:bg-green-900">
-                  <FiDollarSign className="text-green-600 dark:text-green-400" />
+                  <FiCreditCard className="text-green-600 dark:text-green-400" />
                 </div>
               </div>
             </div>
@@ -318,7 +307,7 @@ const LoanApplicationPage: React.FC = () => {
               
               <div>
                 <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Loan Amount ($)
+                  Loan Amount (PKR)
                 </label>
                 <input
                   type="number"
@@ -350,21 +339,6 @@ const LoanApplicationPage: React.FC = () => {
                 />
               </div>
               
-              <div className="relative">
-                <label htmlFor="interestRate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Interest Rate (%)
-                </label>
-                <input
-                  type="number"
-                  id="interestRate"
-                  name="interestRate"
-                  value={newLoan.interestRate}
-                  className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  readOnly
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Based on loan type</p>
-              </div>
-              
               <div className="md:col-span-2">
                 <label htmlFor="reason" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Reason for Loan
@@ -388,11 +362,7 @@ const LoanApplicationPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Principal Amount:</p>
-                    <p className="text-md font-semibold text-gray-800 dark:text-white">${newLoan.amount.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Interest Rate:</p>
-                    <p className="text-md font-semibold text-gray-800 dark:text-white">{newLoan.interestRate}%</p>
+                    <p className="text-md font-semibold text-gray-800 dark:text-white">PKR {newLoan.amount.toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Duration:</p>
@@ -400,7 +370,7 @@ const LoanApplicationPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Monthly Payment:</p>
-                    <p className="text-md font-semibold text-green-600 dark:text-green-400">${estimatedPayment.toFixed(2)}</p>
+                    <p className="text-md font-semibold text-green-600 dark:text-green-400">PKR {estimatedPayment.toFixed(2)}</p>
                   </div>
                 </div>
               </div>
@@ -493,13 +463,13 @@ const LoanApplicationPage: React.FC = () => {
                         {application.loanType}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        ${application.amount.toLocaleString()}
+                        PKR {application.amount.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {application.durationMonths} months
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        ${application.monthlyInstallment.toFixed(2)}
+                        PKR {application.monthlyInstallment.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         <div className="flex items-center space-x-2">
@@ -508,7 +478,7 @@ const LoanApplicationPage: React.FC = () => {
                           ) : application.status === 'Rejected' ? (
                             <FiX className="text-red-500 text-lg" />
                           ) : application.status === 'Paid' ? (
-                            <FiDollarSign className="text-blue-500 text-lg" />
+                            <FiCreditCard className="text-blue-500 text-lg" />
                           ) : (
                             <FiClock className="text-yellow-500 text-lg" />
                           )}

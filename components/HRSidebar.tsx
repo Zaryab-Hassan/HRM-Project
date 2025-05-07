@@ -4,48 +4,20 @@ import {
   FiHome, 
   FiUsers, 
   FiCalendar, 
-  FiDollarSign, 
-  FiMail,
+  FiDollarSign,
   FiUserPlus,
-  FiCheck,
   FiClipboard,
   FiSettings,
-  FiBell,
-  FiSearch,
-  FiUser,
   FiLogOut,
-  FiX
+  FiBell,
+  FiCreditCard,
+  FiUser
 } from "react-icons/fi";
 import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 
-const ManagerSidebar = () => {
+const HRSidebar = () => {
   const pathname = usePathname();
-  const router = useRouter();
-
-  const navigateWithQuery = (path: string, query: string) => {
-    // If we're already on the same path, use window.history to add query parameters without reloading
-    if (pathname === path) {
-      // Update URL without causing a reload
-      window.history.pushState({}, '', `${path}?${query}`);
-      
-      // Manually trigger the query parameter check - this simulates what would happen after navigation
-      const params = new URLSearchParams(query);
-      if (params.has('showRegistrationModal')) {
-        window.dispatchEvent(new CustomEvent('show-registration-modal'));
-      }
-      if (params.has('showLeaveModal')) {
-        window.dispatchEvent(new CustomEvent('show-leave-modal'));
-      }
-      if (params.has('showAnnouncementModal')) {
-        window.dispatchEvent(new CustomEvent('show-announcement-modal'));
-      }
-    } else {
-      // Use router for other navigations
-      router.push(`${path}?${query}`);
-    }
-  };
 
   // Function to handle user logout
   const handleLogout = async () => {
@@ -56,16 +28,16 @@ const ManagerSidebar = () => {
     <div className="fixed w-64 h-full p-4 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-10 overflow-y-auto">
       <div className="flex items-center mb-8 p-2">
         <FiHome className="text-2xl mr-3 text-pink-500" />
-        <h1 className="text-xl font-bold text-gray-800 dark:text-white">Manager Portal</h1>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-white">HR Portal</h1>
       </div>
 
       {/* Main Navigation */}
       <div className="mb-6">
         <h2 className="text-sm uppercase font-semibold mb-3 dark:text-gray-300">Main Navigation</h2>
         <div className="space-y-1">
-          <Link href="/users/manager" 
+          <Link href="/users/hr" 
             className={`flex items-center w-full p-3 rounded-lg transition ${
-              pathname === "/users/manager" 
+              pathname === "/users/hr" 
                 ? "bg-pink-50 dark:bg-gray-700 text-pink-600 dark:text-pink-400" 
                 : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
             }`}>
@@ -73,9 +45,9 @@ const ManagerSidebar = () => {
             <span>Dashboard</span>
           </Link>
 
-          <Link href="/users/manager/usermanagement" 
+          <Link href="/users/hr/user-management" 
             className={`flex items-center w-full p-3 rounded-lg transition ${
-              pathname.includes("/users/manager/usermanagement") 
+              pathname.includes("/users/hr/user-management") 
                 ? "bg-pink-50 dark:bg-gray-700 text-pink-600 dark:text-pink-400" 
                 : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
             }`}>
@@ -83,9 +55,9 @@ const ManagerSidebar = () => {
             <span>User Management</span>
           </Link>
 
-          <Link href="/users/manager/attendancemanagement" 
+          <Link href="/users/hr/attendance" 
             className={`flex items-center w-full p-3 rounded-lg transition ${
-              pathname.includes("/users/manager/attendancemanagement") 
+              pathname.includes("/users/hr/attendance") 
                 ? "bg-pink-50 dark:bg-gray-700 text-pink-600 dark:text-pink-400" 
                 : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
             }`}>
@@ -93,59 +65,25 @@ const ManagerSidebar = () => {
             <span>Attendance</span>
           </Link>
 
-          <Link href="/users/manager/payrollmanagement" 
+          <Link href="/users/hr/payroll" 
             className={`flex items-center w-full p-3 rounded-lg transition ${
-              pathname.includes("/users/manager/payrollmanagement") 
+              pathname.includes("/users/hr/payroll") && !pathname.includes("/users/hr/my-payroll") 
                 ? "bg-pink-50 dark:bg-gray-700 text-pink-600 dark:text-pink-400" 
                 : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
             }`}>
             <FiDollarSign className="mr-3" />
             <span>Payroll</span>
           </Link>
-
-          <Link href="/users/manager/leave" 
+          
+          <Link href="/users/hr/notifications" 
             className={`flex items-center w-full p-3 rounded-lg transition ${
-              pathname.includes("/users/manager/leave") 
+              pathname.includes("/users/hr/notifications") 
                 ? "bg-pink-50 dark:bg-gray-700 text-pink-600 dark:text-pink-400" 
                 : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
             }`}>
-            <FiClipboard className="mr-3" />
-            <span>Leave Management</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="mb-6">
-        <h2 className="text-sm uppercase font-semibold mb-3 dark:text-gray-300">Quick Actions</h2>
-        <div className="space-y-1">
-          <button 
-            className="flex items-center w-full p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition text-left"
-            onClick={() => navigateWithQuery("/users/manager", "showRegistrationModal=true")}
-          >
-            <FiUserPlus className="mr-3 text-pink-500" />
-            <span>Register Employee</span>
-          </button>
-          
-          <button 
-            className="flex items-center w-full p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition text-left"
-            onClick={() => navigateWithQuery("/users/manager", "showLeaveModal=true")}>
-            <FiCheck className="mr-3 text-pink-500" />
-            <span>Approve Leaves</span>
-          </button>
-          
-          <button 
-            className="flex items-center w-full p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition text-left"
-            onClick={() => navigateWithQuery("/users/manager", "showAnnouncementModal=true")}>
-            <FiMail className="mr-3 text-pink-500" />
-            <span>Post Announcement</span>
-          </button>
-          
-          <button 
-            className="flex items-center w-full p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition text-left">
-            <FiBell className="mr-3 text-pink-500" />
+            <FiBell className="mr-3" />
             <span>Notifications</span>
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -153,14 +91,24 @@ const ManagerSidebar = () => {
       <div className="mb-6">
         <h2 className="text-sm uppercase font-semibold mb-3 dark:text-gray-300">User Menu</h2>
         <div className="space-y-1">
-          <Link href="/users/manager/profile" 
+          <Link href="/users/hr/my-attendance" 
             className={`flex items-center w-full p-3 rounded-lg transition ${
-              pathname.includes("/users/manager/profile") 
+              pathname.includes("/users/hr/my-attendance") 
                 ? "bg-pink-50 dark:bg-gray-700 text-pink-600 dark:text-pink-400" 
                 : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
             }`}>
             <FiUser className="mr-3" />
-            <span>Profile</span>
+            <span>My Attendance</span>
+          </Link>
+
+          <Link href="/users/hr/my-payroll" 
+            className={`flex items-center w-full p-3 rounded-lg transition ${
+              pathname.includes("/users/hr/my-payroll") 
+                ? "bg-pink-50 dark:bg-gray-700 text-pink-600 dark:text-pink-400" 
+                : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+            }`}>
+            <FiCreditCard className="mr-3" />
+            <span>My Payroll</span>
           </Link>
           
           <button 
@@ -184,4 +132,4 @@ const ManagerSidebar = () => {
   );
 };
 
-export default ManagerSidebar;
+export default HRSidebar;

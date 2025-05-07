@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { FiMail, FiSearch, FiUser, FiSave, FiKey } from 'react-icons/fi';
+import { FiMail, FiSearch, FiUser, FiSave, FiKey, FiCheck } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 
 interface Employee {
@@ -28,38 +28,41 @@ export default function UserManagement() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [additionalLeaves, setAdditionalLeaves] = useState<{[key: string]: number}>({});
+  const [additionalLeaves, setAdditionalLeaves] = useState<{ [key: string]: number }>({});
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [updatingLeaves, setUpdatingLeaves] = useState<boolean>(false);
-  const [updateMessage, setUpdateMessage] = useState<{type: string, text: string} | null>(null);
+  const [updateMessage, setUpdateMessage] = useState<{ type: string, text: string } | null>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState<boolean>(false);
   const [resettingPasswords, setResettingPasswords] = useState<boolean>(false);
-  const [passwordResetMessage, setPasswordResetMessage] = useState<{type: string, text: string} | null>(null);
-  
+  const [passwordResetMessage, setPasswordResetMessage] = useState<{ type: string, text: string } | null>(null);
+  // Track status updates for individual employees
+  const [statusUpdating, setStatusUpdating] = useState<{ [key: string]: boolean }>({});
+  const [statusUpdateSuccess, setStatusUpdateSuccess] = useState<{ [key: string]: boolean }>({});
+
   // Pagination state
   const [directoryDisplayLimit, setDirectoryDisplayLimit] = useState<number>(5);
   const [leavesDisplayLimit, setLeavesDisplayLimit] = useState<number>(5);
-  
+
   // New state for password reset modal
   const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  
+
   // Add clientSide flag to prevent hydration mismatch
   const [isClient, setIsClient] = useState<boolean>(false);
 
   useEffect(() => {
     // Mark component as client-side rendered
     setIsClient(true);
-    
+
     const fetchEmployees = async () => {
       try {
         setLoading(true);
         const response = await fetch('/api/hr/employees');
         const result = await response.json();
-        
+
         if (result.success) {
           setEmployees(result.data);
         } else {
@@ -78,7 +81,7 @@ export default function UserManagement() {
 
   // Filter employees based on search term - using useMemo to prevent recalculation on every render
   const filteredEmployees = useMemo(() => {
-    return employees.filter(emp => 
+    return employees.filter(emp =>
       emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       emp.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
       emp.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -101,10 +104,10 @@ export default function UserManagement() {
   useEffect(() => {
     if (isClient) { // Only run this effect on the client-side
       // Keep only the employees that are still in filteredEmployees
-      const updatedSelection = selectedEmployees.filter(id => 
+      const updatedSelection = selectedEmployees.filter(id =>
         filteredEmployees.some(emp => emp._id === id)
       );
-      
+
       // Only update if there's an actual change to avoid infinite loops
       if (JSON.stringify(updatedSelection) !== JSON.stringify(selectedEmployees)) {
         setSelectedEmployees(updatedSelection);
@@ -118,12 +121,12 @@ export default function UserManagement() {
       [id]: parseInt(value) || 0
     }));
   };
-  
+
   const saveLeaveChanges = async () => {
     try {
       setUpdatingLeaves(true);
       setUpdateMessage(null);
-      
+
       // Filter out employees that have additional leaves assigned
       const updatedEmployees = Object.keys(additionalLeaves)
         .filter(id => additionalLeaves[id] !== 0)
@@ -131,7 +134,7 @@ export default function UserManagement() {
           employeeId: id,
           additionalLeaves: additionalLeaves[id]
         }));
-      
+
       if (updatedEmployees.length === 0) {
         setUpdateMessage({
           type: 'warning',
@@ -140,7 +143,7 @@ export default function UserManagement() {
         setUpdatingLeaves(false);
         return;
       }
-      
+
       const response = await fetch('/api/hr/employees/leaves', {
         method: 'POST',
         headers: {
@@ -148,9 +151,9 @@ export default function UserManagement() {
         },
         body: JSON.stringify({ updates: updatedEmployees })
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         // Update the local employee data with new leave counts
         const updatedEmployeesList = employees.map(emp => {
@@ -163,7 +166,7 @@ export default function UserManagement() {
           }
           return emp;
         });
-        
+
         setEmployees(updatedEmployeesList);
         setAdditionalLeaves({});
         setUpdateMessage({
@@ -235,14 +238,14 @@ export default function UserManagement() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           employeeIds: selectedEmployees,
           newPassword: newPassword
         })
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         setPasswordResetMessage({
           type: 'success',
@@ -268,16 +271,56 @@ export default function UserManagement() {
       setResettingPasswords(false);
     }
   };
-  
+
   // Navigate to employee detail page
   const handleViewEmployeeDetails = (id: string) => {
     router.push(`/users/hr/user-management/${id}`);
   };
-  
+
+  // Handle status change
+  const handleStatusChange = async (id: string, status: string) => {
+    try {
+      // Only set status updating for this specific employee
+      setStatusUpdating(prev => ({ ...prev, [id]: true }));
+
+      const response = await fetch('/api/hr/employees/status', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ employeeId: id, status })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Update the local employee data with new status
+        setEmployees(prev =>
+          prev.map(emp => emp._id === id ? { ...emp, status } : emp)
+        );
+        setError(null);
+        setStatusUpdateSuccess(prev => ({ ...prev, [id]: true }));
+
+        // Clear success indicator after 2 seconds
+        setTimeout(() => {
+          setStatusUpdateSuccess(prev => ({ ...prev, [id]: false }));
+        }, 2000);
+      } else {
+        setError('Failed to update status');
+        setStatusUpdateSuccess(prev => ({ ...prev, [id]: false }));
+      }
+    } catch (err) {
+      setError('An error occurred while updating status');
+      console.error(err);
+    } finally {
+      setStatusUpdating(prev => ({ ...prev, [id]: false }));
+    }
+  };
+
   return (
     <div className='dark:bg-gray-900 p-6'>
       <h1 className="text-2xl font-bold mb-6 dark:text-white">User Management</h1>
-      
+
       {/* Employee List Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700 p-6 mb-6">
         <div className="flex justify-between items-center mb-4">
@@ -293,7 +336,7 @@ export default function UserManagement() {
             <FiSearch className="absolute left-3 top-3 text-gray-400" />
           </div>
         </div>
-        
+
         {loading ? (
           <div className="flex justify-center items-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -351,15 +394,38 @@ export default function UserManagement() {
                       <td className="px-6 py-4 dark:text-white">{emp.email}</td>
                       <td className="px-6 py-4 dark:text-white">{emp.phone}</td>
                       <td className="px-6 py-4">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full 
-                          ${emp.status === 'Active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
-                            emp.status === 'On Leave' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 
-                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
-                          {emp.status}
-                        </span>
+                        <div className="relative">
+                          <select
+                            className={`pl-2 pr-7 py-1 text-xs font-medium rounded ${
+                              emp.status === 'Active' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' : 
+                              emp.status === 'On Leave' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' : 
+                              'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
+                            } appearance-none cursor-pointer`}
+                            value={emp.status}
+                            onChange={(e) => handleStatusChange(emp._id, e.target.value)}
+                            disabled={statusUpdating[emp._id]}
+                          >
+                            <option value="Active">Active</option>
+                            <option value="On Leave">On Leave</option>
+                            <option value="Terminated">Terminated</option>
+                          </select>
+                          
+                          {/* Status indicators */}
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-1.5 pointer-events-none">
+                            {statusUpdating[emp._id] ? (
+                              <div className="animate-spin h-3 w-3 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+                            ) : statusUpdateSuccess[emp._id] ? (
+                              <FiCheck className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <svg className="h-3 w-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
-                        <button 
+                        <button
                           className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mr-2"
                           onClick={() => handleViewEmployeeDetails(emp._id)}
                         >
@@ -373,7 +439,7 @@ export default function UserManagement() {
             </table>
             {isClient && filteredEmployees.length > directoryDisplayLimit && (
               <div className="flex justify-end mt-4">
-                <button 
+                <button
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                   onClick={() => setDirectoryDisplayLimit(prev => prev + 5)}
                 >
@@ -411,28 +477,28 @@ export default function UserManagement() {
                 .filter(emp => emp.status !== 'Terminated') // Filter out terminated employees
                 .slice(0, leavesDisplayLimit)
                 .map(emp => (
-                <tr key={emp._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 dark:text-white">{emp.name}</td>
-                  <td className="px-6 py-4 dark:text-white">{emp.totalLeaves || 14}</td>
-                  <td className="px-6 py-4">
-                    <input
-                      type="number"
-                      value={additionalLeaves[emp._id] || ''}
-                      onChange={(e) => handleAssignLeaves(emp._id, e.target.value)}
-                      className="w-20 p-1 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    />
-                  </td>
-                  <td className="px-6 py-4 dark:text-white">
-                    {(emp.totalLeaves || 14) + (additionalLeaves[emp._id] || 0)}
-                  </td>
-                </tr>
-              ))
+                  <tr key={emp._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-6 py-4 dark:text-white">{emp.name}</td>
+                    <td className="px-6 py-4 dark:text-white">{emp.totalLeaves || 14}</td>
+                    <td className="px-6 py-4">
+                      <input
+                        type="number"
+                        value={additionalLeaves[emp._id] || ''}
+                        onChange={(e) => handleAssignLeaves(emp._id, e.target.value)}
+                        className="w-20 p-1 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </td>
+                    <td className="px-6 py-4 dark:text-white">
+                      {(emp.totalLeaves || 14) + (additionalLeaves[emp._id] || 0)}
+                    </td>
+                  </tr>
+                ))
             )}
           </tbody>
         </table>
         {isClient && filteredEmployees.filter(emp => emp.status !== 'Terminated').length > leavesDisplayLimit && (
           <div className="flex justify-end mt-4">
-            <button 
+            <button
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               onClick={() => setLeavesDisplayLimit(prev => prev + 5)}
             >
@@ -441,7 +507,7 @@ export default function UserManagement() {
           </div>
         )}
         <div className="flex justify-end mt-4">
-          <button 
+          <button
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
             onClick={saveLeaveChanges}
             disabled={updatingLeaves}
@@ -459,7 +525,7 @@ export default function UserManagement() {
       {/* Email Password Management */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700 p-6">
         <h2 className="text-xl font-semibold mb-4 dark:text-white">Manage Email Passwords</h2>
-        <button 
+        <button
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           onClick={openPasswordResetModal}
           disabled={resettingPasswords}
@@ -481,13 +547,13 @@ export default function UserManagement() {
             <p className="mb-4 text-gray-600 dark:text-gray-300">
               Enter a new password for {selectedEmployees.length} selected employee{selectedEmployees.length > 1 ? 's' : ''}.
             </p>
-            
+
             {passwordError && (
               <div className="mb-4 p-2 bg-red-100 border border-red-400 text-red-700 rounded">
                 {passwordError}
               </div>
             )}
-            
+
             <div className="mb-4">
               <label className="block text-gray-700 dark:text-gray-300 font-semibold mb-2">New Password</label>
               <input
@@ -498,7 +564,7 @@ export default function UserManagement() {
                 placeholder="Enter new password"
               />
             </div>
-            
+
             <div className="mb-6">
               <label className="block text-gray-700 dark:text-gray-300 font-semibold mb-2">Confirm Password</label>
               <input
@@ -509,21 +575,21 @@ export default function UserManagement() {
                 placeholder="Confirm new password"
               />
             </div>
-            
+
             <div className="flex justify-end gap-2">
-              <button 
+              <button
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
                 onClick={closePasswordResetModal}
                 disabled={resettingPasswords}
               >
                 Cancel
               </button>
-              <button 
+              <button
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                 onClick={handleResetPasswords}
                 disabled={resettingPasswords}
               >
-                {resettingPasswords ? 'Resetting...' : 'Reset Passwords'}
+                <FiKey /> {resettingPasswords ? 'Resetting...' : 'Reset Passwords'}
               </button>
             </div>
           </div>

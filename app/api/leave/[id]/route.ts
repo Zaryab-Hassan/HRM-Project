@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import dbConnect from '@/lib/mongodb';
 import LeaveRequest from '@/models/LeaveRequest';
@@ -7,14 +7,14 @@ import Manager from '@/models/Manager';
 
 // Get a specific leave request
 export async function GET(
-  request: NextRequest,
+  req: NextRequest,
   context: { params: { id: string } }
 ) {
   const { id } = context.params;
   
   try {
     await dbConnect();
-    
+    // Using getServerSession with authOptions only
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -42,6 +42,11 @@ export async function GET(
       }
     }
 
+    // Allow HR users to access any leave request
+    if (userRole === 'hr') {
+      // HR has access to all leave requests
+    }
+
     return NextResponse.json(leaveRequest);
   } catch (error) {
     console.error('Error fetching leave request:', error);
@@ -52,11 +57,11 @@ export async function GET(
 // Update a leave request (approve/reject)
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {  
   try {
     await dbConnect();
-    
+    // Using getServerSession with authOptions only
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -73,14 +78,15 @@ export async function PUT(
     const body = await req.json();
     const { status } = body;
 
-    if (!['approved', 'rejected'].includes(status)) {
+    // Updated to check for capitalized status values to match schema
+    if (!['Approved', 'Rejected'].includes(status)) {
       return NextResponse.json(
-        { error: 'Invalid status' },
+        { error: 'Invalid status. Must be Approved or Rejected' },
         { status: 400 }
       );
     }
 
-    const leaveRequest = await LeaveRequest.findById(params.id);
+    const leaveRequest = await LeaveRequest.findById(context.params.id);
     
     if (!leaveRequest) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 });
@@ -93,6 +99,9 @@ export async function PUT(
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
+
+    // HR users can approve/reject any leave request
+    // No additional checks needed for HR
 
     leaveRequest.status = status;
     leaveRequest.approvedBy = userId;
@@ -111,13 +120,14 @@ export async function PUT(
 
 // Delete a leave request
 export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: { id: string } }
 ) {  
   try {
     await dbConnect();
-    
+    // Using getServerSession with authOptions only
     const session = await getServerSession(authOptions);
+
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
@@ -126,7 +136,7 @@ export async function DELETE(
     const userId = session.user.email;
     const userRole = session.user.role;
 
-    const request = await LeaveRequest.findById(params.id);
+    const request = await LeaveRequest.findById(context.params.id);
     
     if (!request) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 });
@@ -136,13 +146,18 @@ export async function DELETE(
     if (userRole === 'employee') {
       if (
         request.employeeId.toString() !== userId ||
-        request.status !== 'pending'
+        request.status !== 'Pending'  // Changed from 'pending' to 'Pending' to match frontend
       ) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
 
-    await LeaveRequest.findByIdAndDelete(params.id);
+    // Allow HR users to delete any leave request
+    if (userRole === 'hr') {
+      // HR can delete any leave request
+    }
+
+    await LeaveRequest.findByIdAndDelete(context.params.id);
 
     return NextResponse.json({ message: 'Request deleted successfully' });
   } catch (error) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { FiCalendar, FiDollarSign, FiClock, FiBell } from 'react-icons/fi';
+import { FiCalendar, FiCreditCard, FiClock, FiBell } from 'react-icons/fi';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -240,11 +240,11 @@ export default function EmployeeDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium">Upcoming Salary</h3>
-                <p className="text-2xl font-bold mt-1 dark:text-white">${stats.upcomingSalary}</p>
+                <p className="text-2xl font-bold mt-1 dark:text-white">PKR {stats.upcomingSalary}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Expected at month-end</p>
               </div>
               <div className="p-3 rounded-lg bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
-                <FiDollarSign className="text-xl" />
+                <FiCreditCard className="text-xl" />
               </div>
             </div>
           </div>

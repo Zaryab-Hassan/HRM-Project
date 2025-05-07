@@ -242,6 +242,22 @@ export default function ManagerDashboard() {
         // Use history API to update URL without reloading the page
         window.history.replaceState({}, '', `${url.pathname}`);
       }
+
+      // Add custom event listeners for sidebar button clicks
+      const handleShowRegistrationModal = () => setShowRegistrationModal(true);
+      const handleShowLeaveModal = () => setShowLeaveModal(true);
+      const handleShowAnnouncementModal = () => setShowAnnouncementModal(true);
+
+      window.addEventListener('show-registration-modal', handleShowRegistrationModal);
+      window.addEventListener('show-leave-modal', handleShowLeaveModal);
+      window.addEventListener('show-announcement-modal', handleShowAnnouncementModal);
+
+      // Clean up event listeners when the component unmounts
+      return () => {
+        window.removeEventListener('show-registration-modal', handleShowRegistrationModal);
+        window.removeEventListener('show-leave-modal', handleShowLeaveModal);
+        window.removeEventListener('show-announcement-modal', handleShowAnnouncementModal);
+      };
     }
   }, []);
 
@@ -468,11 +484,9 @@ export default function ManagerDashboard() {
 
   return (
     <div className="flex bg-gray-50 dark:bg-gray-900 min-h-screen overflow-hidden">
-      {/* Sidebar */}
-      <ManagerSidebar/>
       
       {/* Main content */}
-      <div className="flex-1 p-8 ml-64">
+      <div className="flex-1 p-8 ml-4">
         {/* Add Employee Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">

@@ -55,7 +55,9 @@ export default function PayrollManagement() {
             position: record.position,
             baseSalary: record.baseSalary,
             bonuses: record.bonuses,
+            bonusDescription: record.bonusDescription || '',
             deductions: record.deductions,
+            deductionDescription: record.deductionDescription || '',
             netSalary: record.netSalary,
             status: record.status
           }));
@@ -108,7 +110,13 @@ export default function PayrollManagement() {
   }, []);
 
   // Handle updating salary record in the database
-  const handleSaveSalary = async (id: number, updates: { baseSalary: number, bonuses: number, deductions: number }) => {
+  const handleSaveSalary = async (id: number, updates: { 
+    baseSalary: number, 
+    bonuses: number, 
+    bonusDescription?: string, 
+    deductions: number,
+    deductionDescription?: string 
+  }) => {
     try {
       setError(null);
       
@@ -140,7 +148,9 @@ export default function PayrollManagement() {
               position: updatedRecord.position,
               baseSalary: updatedRecord.baseSalary,
               bonuses: updatedRecord.bonuses,
+              bonusDescription: updatedRecord.bonusDescription || '',
               deductions: updatedRecord.deductions,
+              deductionDescription: updatedRecord.deductionDescription || '',
               netSalary: updatedRecord.netSalary,
               status: updatedRecord.status
             };

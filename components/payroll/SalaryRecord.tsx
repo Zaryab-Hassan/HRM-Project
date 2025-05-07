@@ -1,7 +1,7 @@
 'use client';
 
-import { FiDollarSign, FiEdit, FiCheck, FiChevronDown } from 'react-icons/fi';
-import { useState } from 'react';
+import { FiCreditCard, FiEdit, FiCheck, FiChevronDown, FiAlertCircle } from 'react-icons/fi';
+import { useState, useRef } from 'react';
 
 export type EmployeeSalary = {
   id: number;
@@ -9,14 +9,22 @@ export type EmployeeSalary = {
   position: string;
   baseSalary: number;
   bonuses: number;
+  bonusDescription?: string;
   deductions: number;
+  deductionDescription?: string;
   netSalary: number;
   status: 'Paid' | 'Pending' | 'Processing';
 };
 
 type SalaryRecordProps = {
   salaries: EmployeeSalary[];
-  onSaveSalary: (id: number, updates: { baseSalary: number, bonuses: number, deductions: number }) => void;
+  onSaveSalary: (id: number, updates: { 
+    baseSalary: number, 
+    bonuses: number, 
+    bonusDescription?: string,
+    deductions: number,
+    deductionDescription?: string 
+  }) => void;
   onChangeStatus?: (id: number, newStatus: 'Paid' | 'Pending' | 'Processing') => void;
   searchTerm: string;
 };
@@ -25,6 +33,9 @@ export default function SalaryRecord({ salaries, onSaveSalary, onChangeStatus, s
   const [editingSalaryId, setEditingSalaryId] = useState<number | null>(null);
   const [tempSalary, setTempSalary] = useState<Partial<EmployeeSalary>>({});
   const [statusDropdownOpen, setStatusDropdownOpen] = useState<number | null>(null);
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<'top' | 'bottom'>('bottom');
+  const tableRef = useRef<HTMLDivElement>(null);
 
   // Filtered salaries
   const filteredSalaries = salaries.filter(salary => {
@@ -38,7 +49,9 @@ export default function SalaryRecord({ salaries, onSaveSalary, onChangeStatus, s
     setTempSalary({
       baseSalary: salary.baseSalary,
       bonuses: salary.bonuses,
-      deductions: salary.deductions
+      bonusDescription: salary.bonusDescription || '',
+      deductions: salary.deductions,
+      deductionDescription: salary.deductionDescription || ''
     });
   };
 
@@ -47,7 +60,9 @@ export default function SalaryRecord({ salaries, onSaveSalary, onChangeStatus, s
       onSaveSalary(id, {
         baseSalary: tempSalary.baseSalary,
         bonuses: tempSalary.bonuses || 0,
+        bonusDescription: tempSalary.bonusDescription,
         deductions: tempSalary.deductions || 0,
+        deductionDescription: tempSalary.deductionDescription
       });
     }
     setEditingSalaryId(null);
@@ -71,15 +86,27 @@ export default function SalaryRecord({ salaries, onSaveSalary, onChangeStatus, s
     
     setStatusDropdownOpen(null);
   };
+  
+  // Check if button is near the bottom of the table to determine tooltip position
+  const checkTooltipPosition = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (tableRef.current) {
+      const buttonRect = event.currentTarget.getBoundingClientRect();
+      const tableRect = tableRef.current.getBoundingClientRect();
+      const distanceFromBottom = tableRect.bottom - buttonRect.bottom;
+      
+      // If button is within 150px of the table bottom, show tooltip above
+      setTooltipPosition(distanceFromBottom < 150 ? 'top' : 'bottom');
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700 mb-8">
       <div className="p-6 border-b dark:border-gray-700">
         <h2 className="text-xl font-semibold flex items-center gap-2 dark:text-white">
-          <FiDollarSign className="dark:text-gray-300" /> Salary Records
+          <FiCreditCard className="dark:text-gray-300" /> Salary Records
         </h2>
       </div>
-      <div className="overflow-x-auto">
+      <div ref={tableRef} className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
@@ -94,7 +121,7 @@ export default function SalaryRecord({ salaries, onSaveSalary, onChangeStatus, s
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredSalaries.map(salary => (
+            {filteredSalaries.map((salary, index) => (
               <tr key={salary.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-6 py-4 whitespace-nowrap dark:text-white">{salary.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap dark:text-gray-300">{salary.position}</td>
@@ -115,27 +142,95 @@ export default function SalaryRecord({ salaries, onSaveSalary, onChangeStatus, s
                 
                 <td className="px-6 py-4 whitespace-nowrap">
                   {editingSalaryId === salary.id ? (
-                    <input
-                      type="number"
-                      className="w-20 p-1 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      value={tempSalary.bonuses}
-                      onChange={(e) => setTempSalary({...tempSalary, bonuses: Number(e.target.value)})}
-                    />
+                    <div className="flex flex-col">
+                      <input
+                        type="number"
+                        className="w-20 p-1 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        value={tempSalary.bonuses}
+                        onChange={(e) => setTempSalary({...tempSalary, bonuses: Number(e.target.value)})}
+                      />
+                      <textarea
+                        placeholder="Bonus description"
+                        className="w-32 mt-1 p-1 border rounded text-xs dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        value={tempSalary.bonusDescription}
+                        onChange={(e) => setTempSalary({...tempSalary, bonusDescription: e.target.value})}
+                        rows={2}
+                      />
+                    </div>
                   ) : (
-                    <span className="dark:text-white">{salary.bonuses}</span>
+                    <div className="flex flex-col">
+                      <span className="text-green-600 dark:text-green-400">
+                        +{salary.bonuses}
+                      </span>
+                      {salary.bonusDescription && (
+                        <div className="relative">
+                          <button 
+                            className="text-xs text-gray-500 dark:text-gray-400 mt-1 hover:underline flex items-center"
+                            onMouseEnter={(e) => {
+                              checkTooltipPosition(e);
+                              setActiveTooltip(`bonus-${salary.id}`);
+                            }}
+                            onMouseLeave={() => setActiveTooltip(null)}
+                          >
+                            <FiAlertCircle className="mr-1" size={12} />
+                            View details
+                          </button>
+                          {activeTooltip === `bonus-${salary.id}` && (
+                            <div className={`absolute z-10 w-64 p-2 text-xs rounded-md shadow-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600
+                              ${tooltipPosition === 'bottom' ? 'mt-1' : 'bottom-full mb-1'} max-h-[200px] overflow-y-auto whitespace-normal break-words`}>
+                              {salary.bonusDescription}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </td>
                 
                 <td className="px-6 py-4 whitespace-nowrap">
                   {editingSalaryId === salary.id ? (
-                    <input
-                      type="number"
-                      className="w-20 p-1 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      value={tempSalary.deductions}
-                      onChange={(e) => setTempSalary({...tempSalary, deductions: Number(e.target.value)})}
-                    />
+                    <div className="flex flex-col">
+                      <input
+                        type="number"
+                        className="w-20 p-1 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        value={tempSalary.deductions}
+                        onChange={(e) => setTempSalary({...tempSalary, deductions: Number(e.target.value)})}
+                      />
+                      <textarea
+                        placeholder="Deduction description"
+                        className="w-32 mt-1 p-1 border rounded text-xs dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        value={tempSalary.deductionDescription}
+                        onChange={(e) => setTempSalary({...tempSalary, deductionDescription: e.target.value})}
+                        rows={2}
+                      />
+                    </div>
                   ) : (
-                    <span className="dark:text-white">{salary.deductions}</span>
+                    <div className="flex flex-col">
+                      <span className="text-red-600 dark:text-red-400">
+                        -{salary.deductions}
+                      </span>
+                      {salary.deductionDescription && (
+                        <div className="relative">
+                          <button 
+                            className="text-xs text-gray-500 dark:text-gray-400 mt-1 hover:underline flex items-center"
+                            onMouseEnter={(e) => {
+                              checkTooltipPosition(e);
+                              setActiveTooltip(`deduction-${salary.id}`);
+                            }}
+                            onMouseLeave={() => setActiveTooltip(null)}
+                          >
+                            <FiAlertCircle className="mr-1" size={12} />
+                            View details
+                          </button>
+                          {activeTooltip === `deduction-${salary.id}` && (
+                            <div className={`absolute z-10 w-64 p-2 text-xs rounded-md shadow-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600
+                              ${tooltipPosition === 'bottom' ? 'mt-1' : 'bottom-full mb-1'} max-h-[200px] overflow-y-auto whitespace-normal break-words`}>
+                              {salary.deductionDescription}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </td>
                 

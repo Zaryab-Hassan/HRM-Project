@@ -8,6 +8,10 @@ export default withAuth(
 
     // Admin (HR) can access everything
     if (role === 'hr') {
+      // If an HR user is on an employee or manager page, redirect them to HR pages
+      if (path.startsWith('/users/employee') || path.startsWith('/users/manager')) {
+        return NextResponse.redirect(new URL('/users/hr', req.url));
+      }
       return NextResponse.next();
     }
 

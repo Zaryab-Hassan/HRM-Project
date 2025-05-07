@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "../../../app/globals.css";
-import ClientHRLayout from "../../../components/ClientHRLayout";
+import HRSidebar from "../../../components/HRSidebar";
+import ClientSessionProvider from "../../../components/ClientSessionProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,9 +20,16 @@ export default function HRLayout({
 }>) {
   return (
     <div className={`${geistSans.variable} ${geistMono.variable}`}>
-      <ClientHRLayout>
-        {children}
-      </ClientHRLayout>
+      <ClientSessionProvider>
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+          <HRSidebar />
+          <div className="flex-1 flex flex-col overflow-hidden pl-64">
+            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 dark:bg-gray-900 p-6">
+              {children}
+            </main>
+          </div>
+        </div>
+      </ClientSessionProvider>
     </div>
   );
 }

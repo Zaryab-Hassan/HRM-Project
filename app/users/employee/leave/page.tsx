@@ -70,6 +70,15 @@ const LeaveManagement: React.FC = () => {
   // Handle delete request
   const handleDelete = async (id: string) => {
     try {
+      // Find the leave request to check its status
+      const leaveToDelete = leaveRequests.find(request => request._id === id);
+      
+      // Prevent deletion if the leave request is not in Pending status
+      if (!leaveToDelete || leaveToDelete.status !== 'Pending') {
+        alert('Only pending leave requests can be deleted.');
+        return;
+      }
+
       const response = await fetch(`/api/leave/${id}`, {
         method: 'DELETE',
       });

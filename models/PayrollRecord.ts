@@ -22,9 +22,17 @@ const payrollRecordSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  bonusDescription: {
+    type: String,
+    default: ''
+  },
   deductions: {
     type: Number,
     default: 0
+  },
+  deductionDescription: {
+    type: String,
+    default: ''
   },
   netSalary: {
     type: Number,

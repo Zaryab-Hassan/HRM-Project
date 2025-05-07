@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectToDatabase from '../../../lib/mongodb';
-import PayrollRecord from '../../../models/PayrollRecord';
-import Employee from '../../../models/Employee';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import connectToDatabase from '@/lib/mongodb';
+import Employee from '@/models/Employee';
+import PayrollRecord from '@/models/PayrollRecord';
+import mongoose from 'mongoose';
 
 // GET handler to retrieve payroll records
 export async function GET(request: NextRequest) {
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
     if (department !== 'All') {
       // If department filter is applied, join with Employee collection to filter by department
       const employeesInDepartment = await Employee.find({ department, status: { $ne: 'Terminated' } }).select('_id');
-      const employeeIds = employeesInDepartment.map(emp => emp._id);
+      const employeeIds: mongoose.Types.ObjectId[] = employeesInDepartment.map((emp: { _id: mongoose.Types.ObjectId }) => emp._id);
       query.employeeId = { $in: employeeIds };
     }
     
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
     
     // First fetch all active employees to get their IDs
     const activeEmployees = await Employee.find({ status: { $ne: 'Terminated' } }).select('_id name');
-    const activeEmployeeIds = activeEmployees.map(emp => emp._id);
+    const activeEmployeeIds = activeEmployees.map((emp: { _id: mongoose.Types.ObjectId; name: string }) => emp._id);
     
     // Add this filter to only get payroll records for active employees
     const activeEmployeeQuery = { ...query, employeeId: { $in: activeEmployeeIds } };
@@ -59,13 +61,15 @@ export async function GET(request: NextRequest) {
       const employees = await Employee.find({ status: { $ne: 'Terminated' } });
       
       if (employees.length > 0) {
-        const newRecords = employees.map(employee => ({
+        const newRecords = employees.map((employee: any) => ({
           employeeId: employee._id,
           name: employee.name,
           position: employee.role,
           baseSalary: employee.currentSalary,
           bonuses: 0,
+          bonusDescription: '',
           deductions: 0,
+          deductionDescription: '',
           netSalary: employee.currentSalary,
           status: 'Pending',
           month: currentMonth,
@@ -93,7 +97,7 @@ export async function PATCH(request: NextRequest) {
     await connectToDatabase();
     
     const body = await request.json();
-    const { id, baseSalary, bonuses, deductions, status } = body;
+    const { id, baseSalary, bonuses, bonusDescription, deductions, deductionDescription, status } = body;
     
     if (!id) {
       return NextResponse.json(
@@ -114,7 +118,9 @@ export async function PATCH(request: NextRequest) {
     // Update record
     if (baseSalary !== undefined) payrollRecord.baseSalary = baseSalary;
     if (bonuses !== undefined) payrollRecord.bonuses = bonuses;
+    if (bonusDescription !== undefined) payrollRecord.bonusDescription = bonusDescription;
     if (deductions !== undefined) payrollRecord.deductions = deductions;
+    if (deductionDescription !== undefined) payrollRecord.deductionDescription = deductionDescription;
     
     // Update status if provided
     if (status !== undefined) {

@@ -20,6 +20,15 @@ interface MyAttendanceRecordsProps {
   loading: boolean;
 }
 
+// Define session user type with expected properties
+interface ExtendedUser {
+  id?: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  role?: string;
+}
+
 export default function MyAttendanceRecords({ loading }: MyAttendanceRecordsProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -43,13 +52,22 @@ export default function MyAttendanceRecords({ loading }: MyAttendanceRecordsProp
       setError(null);
       
       try {
+        // Type assertion to help TypeScript recognize the user properties
+        const user = session?.user as ExtendedUser;
+        const employeeId = user?.id;
+        
+        if (!employeeId) {
+          throw new Error('Employee ID not found in session');
+        }
+        
         // Make sure dates are in YYYY-MM-DD format without time component
         const formattedStartDate = startDate;
         const formattedEndDate = endDate;
         
         // Add content type header and ensure proper URL encoding
+        // Include employeeId in the query parameters
         const response = await fetch(
-          `/api/employee/attendance?startDate=${encodeURIComponent(formattedStartDate)}&endDate=${encodeURIComponent(formattedEndDate)}`,
+          `/api/employee/attendance?startDate=${encodeURIComponent(formattedStartDate)}&endDate=${encodeURIComponent(formattedEndDate)}&employeeId=${employeeId}`,
           {
             headers: {
               'Content-Type': 'application/json'
@@ -111,7 +129,7 @@ export default function MyAttendanceRecords({ loading }: MyAttendanceRecordsProp
     if (!loading && status === 'authenticated') {
       fetchMyAttendanceRecords();
     }
-  }, [startDate, endDate, loading, status, router]);
+  }, [startDate, endDate, loading, status, router, session]);
 
   // Apply status filter
   useEffect(() => {

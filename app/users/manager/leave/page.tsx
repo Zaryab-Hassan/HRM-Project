@@ -14,7 +14,7 @@ interface LeaveRequest {
   endDate: string;
   leaveType: string;
   reason: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'Pending' | 'Approved' | 'Rejected'; // Updated to match schema
   createdAt: string;
 }
 
@@ -30,7 +30,7 @@ export default function LeaveManagement() {
   const fetchLeaveRequests = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/leave/request');
+      const response = await fetch('/api/leave');
       if (!response.ok) {
         throw new Error('Failed to fetch leave requests');
       }
@@ -44,11 +44,11 @@ export default function LeaveManagement() {
     }
   };
 
-  const handleLeaveAction = async (requestId: string, status: 'approved' | 'rejected') => {
+  const handleLeaveAction = async (requestId: string, status: 'Approved' | 'Rejected') => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/leave/request/${requestId}`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/leave/${requestId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -123,25 +123,25 @@ export default function LeaveManagement() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          request.status === 'approved' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
-                          request.status === 'rejected' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200' :
+                          request.status === 'Approved' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                          request.status === 'Rejected' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200' :
                           'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
                         }`}>
                           {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        {request.status === 'pending' && (
+                        {request.status === 'Pending' && (
                           <div className="flex space-x-2">
                             <button
-                              onClick={() => handleLeaveAction(request._id, 'approved')}
+                              onClick={() => handleLeaveAction(request._id, 'Approved')}
                               className="text-green-600 hover:text-green-900 dark:hover:text-green-400"
                               title="Approve"
                             >
                               <FiCheckCircle className="w-5 h-5" />
                             </button>
                             <button
-                              onClick={() => handleLeaveAction(request._id, 'rejected')}
+                              onClick={() => handleLeaveAction(request._id, 'Rejected')}
                               className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
                               title="Reject"
                             >

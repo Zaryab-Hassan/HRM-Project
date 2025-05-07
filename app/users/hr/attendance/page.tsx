@@ -23,8 +23,8 @@ export default function AttendanceManagement() {
   const [employees, setEmployees] = useState<EmployeeWithAttendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
-
-  // Function to determine if an employee is late (assume 9:00 AM is the cutoff)
+  
+    // Function to determine if an employee is late (assume 9:00 AM is the cutoff)
   const isLateClockIn = (clockInTime: string) => {
     if (!clockInTime) return false;
     
@@ -67,26 +67,9 @@ export default function AttendanceManagement() {
         const today = new Date();
         const todayStr = formatDate(today);
         
-        // Define interfaces for data structures
-        interface Employee {
-          _id: string;
-          name: string;
-          department: string;
-          role: string;
-          email: string;
-          status: string;
-          attendance?: AttendanceRecord[];
-        }
-
-        interface AttendanceRecord {
-          date: string | Date;
-          clockIn?: string | Date;
-          clockOut?: string | Date;
-        }
-
-        const employeesWithAttendance: EmployeeWithAttendance[] = employeesData.map((employee: Employee) => {
+        const employeesWithAttendance: EmployeeWithAttendance[] = employeesData.map((employee: any) => {
           // Find today's attendance record for the employee
-          const todayAttendance = employee.attendance?.find((record: AttendanceRecord) => 
+          const todayAttendance = employee.attendance?.find((record: any) => 
             formatDate(new Date(record.date)) === todayStr
           );
           
@@ -116,44 +99,64 @@ export default function AttendanceManagement() {
   }, []);
 
   return (
-    <div className='bg-gray-50 dark:bg-gray-900 p-6 min-h-screen'>
-      <h1 className="text-2xl font-bold mb-6 dark:text-white">Attendance Management</h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+      <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Attendance Management</h1>
 
       {/* Tabs */}
       <div className="flex border-b dark:border-gray-700 mb-6">
         <button
           onClick={() => setActiveTab('tracking')}
-          className={`px-4 py-2 ${activeTab === 'tracking' ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'dark:text-gray-300'}`}
+          className={`px-4 py-2 ${activeTab === 'tracking' ? 
+            'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 
+            'text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400'}`}
         >
           <FiClock className="inline mr-2" /> In-Out Tracking
         </button>
         <button
           onClick={() => setActiveTab('records')}
-          className={`px-4 py-2 ${activeTab === 'records' ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'dark:text-gray-300'}`}
+          className={`px-4 py-2 ${activeTab === 'records' ? 
+            'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 
+            'text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400'}`}
         >
           <FiTrendingUp className="inline mr-2" /> Attendance Records
         </button>
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-700 p-6">
-        {activeTab === 'tracking' && (
-          <div>
-            <h2 className="text-xl font-semibold mb-4 dark:text-white">Clock In/Out Time</h2>
-            
+      {activeTab === 'tracking' && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4">
+            <h2 className="text-xl font-semibold text-white flex items-center">
+              <FiClock className="mr-2" /> Today's Clock In/Out Time
+            </h2>
+            <p className="text-white text-opacity-90 mt-1">
+              Monitor employee clock in/out status
+            </p>
+          </div>
+          
+          <div className="p-4">
             {/* TodaysAttendance Component */}
             <TodaysAttendance employees={employees} loading={loading} />
           </div>
-        )}
+        </div>
+      )}
 
-        {activeTab === 'records' && (
-          <div>
-            <h2 className="text-xl font-semibold mb-4 dark:text-white">Attendance Records</h2>
-            {/* Implemented AttendanceRecords Component */}
+      {activeTab === 'records' && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4">
+            <h2 className="text-xl font-semibold text-white flex items-center">
+              <FiTrendingUp className="mr-2" /> Attendance History & Reports
+            </h2>
+            <p className="text-white text-opacity-90 mt-1">
+              View and export historical attendance data
+            </p>
+          </div>
+          
+          <div className="p-4">
             <AttendanceRecords loading={loading} />
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

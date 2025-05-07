@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 import connectToDatabase from '../../../../lib/mongodb';
 import PayrollRecord from '../../../../models/PayrollRecord';
 import Employee from '../../../../models/Employee';
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest) {
     await connectToDatabase();
     
     // Get the authenticated user's session
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session || !session.user || !session.user.email) {
       return NextResponse.json(
@@ -56,7 +57,9 @@ export async function GET(request: NextRequest) {
         position: employee.role,
         baseSalary: employee.currentSalary,
         bonuses: 0,
+        bonusDescription: '',
         deductions: 0,
+        deductionDescription: '',
         netSalary: employee.currentSalary,
         status: 'Pending',
         month: currentMonth,
@@ -83,7 +86,7 @@ export async function PATCH(request: NextRequest) {
     await connectToDatabase();
     
     // Get the authenticated user's session
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session || !session.user || !session.user.email) {
       return NextResponse.json(
