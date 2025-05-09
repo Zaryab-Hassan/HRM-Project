@@ -153,7 +153,7 @@ const ManagerSidebar = () => {
       <div className="mb-6">
         <h2 className="text-sm uppercase font-semibold mb-3 dark:text-gray-300">User Menu</h2>
         <div className="space-y-1">
-          <Link href="/users/manager/profile" 
+          <Link href="/users/manager/myprofile" 
             className={`flex items-center w-full p-3 rounded-lg transition ${
               pathname.includes("/users/manager/profile") 
                 ? "bg-pink-50 dark:bg-gray-700 text-pink-600 dark:text-pink-400" 

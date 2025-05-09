@@ -824,6 +824,10 @@ export default function ManagerDashboard() {
                         <option value="">Select Department</option>
                         <option value="Finance">Finance</option>
                         <option value="IT">IT</option>
+                        <option value="HR">HR</option>
+                        <option value="Sales">Sales</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Customer Support">Customer Support</option>
                         <option value="Operations">Operations</option>
                       </select>
                     </div>

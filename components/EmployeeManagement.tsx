@@ -11,6 +11,7 @@ interface Employee {
   role: string; // Added role field
   status: string;
   joinDate: string;
+  createdAt?: string; // Added createdAt field as optional
 }
 
 interface EmployeeManagementProps {
@@ -165,7 +166,12 @@ export default function EmployeeManagement({
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(employee.joinDate).toLocaleDateString()}
+                        {(employee.createdAt) ? 
+                          new Date(employee.createdAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          }) : 'Not available'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-3" onClick={(e) => e.stopPropagation()}>

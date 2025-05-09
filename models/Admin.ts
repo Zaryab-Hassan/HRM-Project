@@ -44,11 +44,32 @@ const adminSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
     default: Date.now,
-  },
-  status: {
+  },  status: {
     type: String,
     enum: ['Active', 'Inactive'],
     default: 'Active',
+  },
+  phone: {
+    type: String,
+  },
+  emergencyContact: {
+    type: String,
+  },
+  dob: {
+    type: Date,
+  },
+  cnic: {
+    type: String,
+  },
+  shift: {
+    type: String,
+    default: 'Day',
+  },
+  initialSalary: {
+    type: Number,
+  },
+  currentSalary: {
+    type: Number,
   },
 }, { collection: 'admin.db' });
 

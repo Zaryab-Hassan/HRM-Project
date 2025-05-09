@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
+import Image from 'next/image';
 
 const LoginModal = () => {
   const { register, handleSubmit, formState: { errors } } = useForm();
@@ -41,13 +42,15 @@ const LoginModal = () => {
         }
       }
 
-      // Redirect based on role
+      // Redirect based on role - prioritize HR/admin redirection
       if (userRole === 'hr') {
+        // Immediately redirect HR users to the admin page
         router.push('/users/hr');
-      } else if (userRole === 'employee') {
-        router.push('/users/employee');
-      } else {
+      } else if (userRole === 'manager') {
         router.push('/users/manager');
+      } else {
+        // Default to employee page for employee role or any unrecognized role
+        router.push('/users/employee');
       }
     } catch (err: any) {
       setError(err.message);
@@ -56,55 +59,118 @@ const LoginModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 dark:bg-opacity-70 z-50">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg w-96 relative z-50">
-        <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Login</h2>
-        {error && (
-          <div className="mb-4 p-2 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
+    <div className="fixed inset-0 flex h-screen w-full bg-black bg-opacity-50 dark:bg-opacity-70 z-50">
+      {/* Left side - Image */}
+      <div className="hidden md:block w-2/3 relative">
+        <div className="relative w-full h-full">
+          <Image 
+            src="/hr-background.jpg" 
+            alt="HR Background" 
+            layout="fill"
+            objectFit="cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent flex flex-col justify-center items-start p-12">
+            <h1 className="text-4xl font-bold text-white mb-4">Welcome to HRM System</h1>
+            <p className="text-xl text-white/90">Manage your human resources efficiently</p>
           </div>
-        )}
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 font-semibold mb-4">Email</label>
-            <input
-              type="email"
-              placeholder="Enter your Email"
-              className="w-full p-2 shadow-lg border-0 bg-gray-50 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
-              {...register("email", { required: true })}
-              disabled={isLoading}
-            />
-            <br />
-            {errors.email && <span className="text-sm text-red-500 dark:text-red-400">This field is required</span>}
+        </div>
+      </div>
+      
+      {/* Right side - Login Form */}
+      <div className="w-full md:w-1/3 h-full flex items-center justify-center bg-gradient-to-br from-white via-gray-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-pink-900/20 relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-40 h-40 bg-pink-200 dark:bg-pink-800 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+          <div className="absolute bottom-0 right-0 w-60 h-60 bg-pink-200 dark:bg-pink-800 rounded-full translate-x-1/4 translate-y-1/4"></div>
+          <div className="absolute top-1/4 right-0 w-20 h-20 bg-pink-300 dark:bg-pink-700 rounded-full translate-x-1/2"></div>
+          <div className="absolute bottom-1/4 left-0 w-24 h-24 bg-pink-300 dark:bg-pink-700 rounded-full -translate-x-1/2"></div>
+        </div>
+        
+        {/* Pattern overlay */}
+        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+
+        <div className="w-full max-w-md mx-6 flex flex-col items-center relative z-10">
+          <div className="w-full text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Login</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">Enter your credentials to access your account</p>
           </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 font-semibold mb-4">Password</label>
-            <input
-              type="password"
-              placeholder="Enter your Password"
-              {...register("password", { required: true })}
-              className="w-full p-2 shadow-lg border-0 bg-gray-50 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
-              disabled={isLoading}
-            />
-            <br />
-            {errors.password && <span className="text-sm text-red-500 dark:text-red-400">This field is required</span>}
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-pink-500 text-white p-2 rounded-lg hover:bg-pink-600 dark:hover:bg-pink-600 flex items-center justify-center"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+
+          <div className="bg-white/90 backdrop-blur-sm dark:bg-gray-800/90 p-8 rounded-2xl shadow-xl w-full border border-white/50 dark:border-gray-700">
+            {error && (
+              <div className="mb-6 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 rounded flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Logging in...
-              </>
-            ) : 'Login'}
-          </button>
-        </form>
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">Email Address</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                    </svg>
+                  </div>
+                  <input
+                    type="email"
+                    placeholder="name@company.com"
+                    className="w-full pl-10 pr-4 py-3 rounded-lg border-0 ring-1 ring-gray-200 focus:ring-2 focus:ring-pink-500 bg-white dark:bg-gray-700 dark:ring-gray-600 dark:text-white dark:placeholder-gray-400 shadow-sm transition-all"
+                    {...register("email", { required: true })}
+                    disabled={isLoading}
+                  />
+                </div>
+                {errors.email && <span className="text-sm text-red-500 dark:text-red-400 mt-1 block">Email is required</span>}
+              </div>
+
+              <div>
+                <label className="block text-gray-700 dark:text-gray-300 font-medium mb-2">Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-4 py-3 rounded-lg border-0 ring-1 ring-gray-200 focus:ring-2 focus:ring-pink-500 bg-white dark:bg-gray-700 dark:ring-gray-600 dark:text-white dark:placeholder-gray-400 shadow-sm transition-all"
+                    {...register("password", { required: true })}
+                    disabled={isLoading}
+                  />
+                </div>
+                {errors.password && <span className="text-sm text-red-500 dark:text-red-400 mt-1 block">Password is required</span>}
+              </div>
+
+              <div className="flex items-center justify-between">
+                
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-pink-500 to-pink-600 text-white py-3 px-4 rounded-lg hover:from-pink-600 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 shadow-md flex items-center justify-center transition-all"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Logging in...
+                  </>
+                ) : 'Login'}
+              </button>
+            </form>
+          </div>
+          
+          <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
+            <p>© {new Date().getFullYear()} HRM System. All rights reserved.</p>
+          </div>
+        </div>
       </div>
     </div>
   );

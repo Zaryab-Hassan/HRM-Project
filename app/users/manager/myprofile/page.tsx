@@ -1,4 +1,4 @@
-// app/employees/profile/page.tsx
+// filepath: d:\HRM-Project\app\users\manager\myprofile\page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import UserProfile, { EmployeeProfile } from '@/components/UserProfile';
 
-export default function EmployeeProfilePage() {
+export default function ManagerProfilePage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [profileData, setProfileData] = useState<EmployeeProfile | null>(null);
@@ -20,7 +20,18 @@ export default function EmployeeProfilePage() {
     emergencyContactRelationship: '',
     profilePicture: null as File | null
   });
-  
+    // Parse emergency contact information safely
+  const parseEmergencyContact = (contact: string | undefined) => {
+    if (!contact) return { name: 'Not provided', phone: 'Not provided', relationship: 'Not provided' };
+    
+    const parts = contact.split(',');
+    return {
+      name: parts[0] || 'Not provided',
+      phone: parts[1] || 'Not provided',
+      relationship: parts[2] || 'Not provided'
+    };
+  };
+
   useEffect(() => {
     // Check authentication
     if (status === 'unauthenticated') {
@@ -28,11 +39,11 @@ export default function EmployeeProfilePage() {
       return;
     }
 
-    // Fetch employee profile data
-    const fetchEmployeeProfile = async () => {
+    // Fetch manager profile data
+    const fetchManagerProfile = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/employee/profile');
+        const response = await fetch('/api/manager/profile');
         
         if (!response.ok) {
           if (response.status === 401) {
@@ -47,12 +58,12 @@ export default function EmployeeProfilePage() {
         
         // Initialize edit form data
         if (data.data) {
-          const emergencyContactParts = data.data.emergencyContact.split(',');
+          const emergencyContact = parseEmergencyContact(data.data.emergencyContact);
           setEditData({
             phone: data.data.phone || '',
-            emergencyContactName: emergencyContactParts[0] || '',
-            emergencyContactPhone: emergencyContactParts[1] || '',
-            emergencyContactRelationship: emergencyContactParts[2] || '',
+            emergencyContactName: emergencyContact.name,
+            emergencyContactPhone: emergencyContact.phone,
+            emergencyContactRelationship: emergencyContact.relationship,
             profilePicture: null
           });
         }
@@ -65,7 +76,7 @@ export default function EmployeeProfilePage() {
     };
 
     if (status === 'authenticated') {
-      fetchEmployeeProfile();
+      fetchManagerProfile();
     }
   }, [status, router]);
   
@@ -102,7 +113,7 @@ export default function EmployeeProfilePage() {
         formData.append('profilePicture', editData.profilePicture);
       }
       
-      const response = await fetch('/api/employee/profile', {
+      const response = await fetch('/api/manager/profile', {
         method: 'PATCH',
         body: formData,
       });

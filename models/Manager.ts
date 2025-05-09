@@ -49,14 +49,21 @@ const managerSchema = new mongoose.Schema({
       type: Boolean,
       default: false,
     }
-  },
-  joiningDate: {
+  },  joiningDate: {
     type: Date,
     default: Date.now,
   },
   lastActive: {
     type: Date,
     default: Date.now,
+  },
+  initialSalary: {
+    type: Number,
+    default: 0
+  },
+  currentSalary: {
+    type: Number,
+    default: 0
   }
 }, { collection: 'manager.db' });
 

@@ -38,10 +38,16 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid password');
         }
 
-        // Determine role based on which collection the user was found in
+        // Determine role based on collection and the user's role field
         let role = 'employee';
-        if (manager) role = 'manager';
-        if (admin) role = 'hr';
+        if (manager) {
+          role = 'manager';
+        } else if (admin) {
+          role = 'hr';
+        } else if (employee && employee.role === 'hr') {
+          // If an employee has an 'hr' role in their record, treat them as HR
+          role = 'hr';
+        }
 
         return {
           id: user._id.toString(),
