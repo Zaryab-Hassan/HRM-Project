@@ -13,11 +13,15 @@ const LoginModal = () => {
   const onSubmit = async (data: any) => {
     setIsLoading(true);
     setError('');
-    
-    try {
+      try {
       // Get the URL parameters to extract callbackUrl
       const searchParams = new URLSearchParams(window.location.search);
       let callbackUrl = searchParams.get('callbackUrl') || '';
+      
+      // Properly decode the callback URL if it exists
+      if (callbackUrl) {
+        callbackUrl = decodeURIComponent(callbackUrl);
+      }
       
       const result = await signIn('credentials', {
         redirect: false,
@@ -53,16 +57,20 @@ const LoginModal = () => {
         targetPath = '/users/manager';
       } else {
         targetPath = '/users/employee';
-      }
-
-      // If there's a callback URL and it points to an acceptable path, use it
-      // Otherwise use our determined target path
-      if (callbackUrl && callbackUrl.includes('/users/')) {
-        // The middleware will handle redirecting to the correct page if needed
-        router.push(callbackUrl);
-      } else {
-        router.push(targetPath);
-      }
+      }      // Log for debugging purposes
+      console.log('User role:', userRole);
+      console.log('Target path:', targetPath);
+      console.log('Callback URL:', callbackUrl);
+      
+      // Force navigation to the appropriate role-specific page regardless of callback URL
+      // This ensures users always go to their designated area
+      setIsLoading(false); // Set loading to false before navigation
+      router.push(targetPath);
+      
+      // Add a small delay and then force refresh to ensure navigation completes
+      setTimeout(() => {
+        window.location.href = targetPath;
+      }, 100);
     } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
