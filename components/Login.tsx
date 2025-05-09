@@ -47,9 +47,7 @@ const LoginModal = () => {
             throw new Error('Your account has been terminated. Please contact HR for more information.');
           }
         }
-      }
-
-      // Determine the appropriate path based on user role
+      }      // Determine the appropriate path based on user role
       let targetPath = '';
       if (userRole === 'hr') {
         targetPath = '/users/hr';
@@ -57,20 +55,18 @@ const LoginModal = () => {
         targetPath = '/users/manager';
       } else {
         targetPath = '/users/employee';
-      }      // Log for debugging purposes
+      }
+      
+      // Log for debugging purposes
       console.log('User role:', userRole);
       console.log('Target path:', targetPath);
       console.log('Callback URL:', callbackUrl);
       
-      // Force navigation to the appropriate role-specific page regardless of callback URL
-      // This ensures users always go to their designated area
-      setIsLoading(false); // Set loading to false before navigation
-      router.push(targetPath);
+      // Set loading to false before navigation
+      setIsLoading(false);
       
-      // Add a small delay and then force refresh to ensure navigation completes
-      setTimeout(() => {
-        window.location.href = targetPath;
-      }, 100);
+      // Use window.location for a hard redirect which is more reliable in production
+      window.location.href = targetPath;
     } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
