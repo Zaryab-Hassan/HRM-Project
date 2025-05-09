@@ -72,8 +72,8 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string | null;
       }
       return session;
-    }
-  },  pages: {
+    }  },
+  pages: {
     signIn: '/',
   },
   session: {

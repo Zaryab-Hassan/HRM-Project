@@ -10,12 +10,15 @@ const LoginModal = () => {
   const router = useRouter();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
   const onSubmit = async (data: any) => {
     setIsLoading(true);
     setError('');
     
     try {
+      // Get the URL parameters to extract callbackUrl
+      const searchParams = new URLSearchParams(window.location.search);
+      let callbackUrl = searchParams.get('callbackUrl') || '';
+      
       const result = await signIn('credentials', {
         redirect: false,
         email: data.email,
@@ -42,15 +45,23 @@ const LoginModal = () => {
         }
       }
 
-      // Redirect based on role - prioritize HR/admin redirection
+      // Determine the appropriate path based on user role
+      let targetPath = '';
       if (userRole === 'hr') {
-        // Immediately redirect HR users to the admin page
-        router.push('/users/hr');
+        targetPath = '/users/hr';
       } else if (userRole === 'manager') {
-        router.push('/users/manager');
+        targetPath = '/users/manager';
       } else {
-        // Default to employee page for employee role or any unrecognized role
-        router.push('/users/employee');
+        targetPath = '/users/employee';
+      }
+
+      // If there's a callback URL and it points to an acceptable path, use it
+      // Otherwise use our determined target path
+      if (callbackUrl && callbackUrl.includes('/users/')) {
+        // The middleware will handle redirecting to the correct page if needed
+        router.push(callbackUrl);
+      } else {
+        router.push(targetPath);
       }
     } catch (err: any) {
       setError(err.message);
