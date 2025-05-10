@@ -20,10 +20,9 @@ const LoginModal = () => {
       // Properly decode the callback URL if it exists
       if (callbackUrl) {
         callbackUrl = decodeURIComponent(callbackUrl);
-      }
-      
+      }      // We'll use the true signIn approach but prevent the default redirect
       const result = await signIn('credentials', {
-        redirect: false,
+        redirect: false, // We'll handle redirection ourselves
         email: data.email,
         password: data.password,
       });
@@ -33,12 +32,42 @@ const LoginModal = () => {
       }
 
       // Crucial: wait for the session to be established
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Fetch the user session from the next-auth session endpoint
-      const res = await fetch('/api/auth/session');
-      const session = await res.json();
-      const userRole = session?.user?.role || 'employee';
+      await new Promise(resolve => setTimeout(resolve, 1500));      // Try to get the session directly from result if available
+      let userRole = 'employee'; // Default role
+      
+      // Debug the result to see what we're getting from signIn
+      console.log('SignIn result:', result);
+      
+      // Get authenticated session after login with multiple retries
+      let session = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          const res = await fetch('/api/auth/session');
+          session = await res.json();
+          console.log(`Session attempt ${retryCount + 1}:`, session);
+          
+          if (session?.user?.role) {
+            userRole = session.user.role;
+            console.log('Found user role:', userRole);
+            break;
+          }
+          
+          // If no role found, wait and try again
+          await new Promise(resolve => setTimeout(resolve, 800));
+          retryCount++;
+        } catch (err) {
+          console.error(`Error fetching session (attempt ${retryCount + 1}):`, err);
+          retryCount++;
+          await new Promise(resolve => setTimeout(resolve, 800));
+        }
+      }
+      
+      // If we still don't have a role, use the default
+      userRole = session?.user?.role || 'employee';
+      console.log('Final user role:', userRole);
 
       // Check if the employee is terminated
       if (userRole === 'employee') {
@@ -64,13 +93,29 @@ const LoginModal = () => {
       // Log for debugging purposes
       console.log('User role:', userRole);
       console.log('Target path:', targetPath);
-      console.log('Callback URL:', callbackUrl);
+      console.log('Callback URL:', callbackUrl);      // Log the target path for debugging
+      console.log('Attempting navigation to:', targetPath);
       
-      // Set loading to false before navigation
+      // Try the most direct approach: use the signIn redirect
+      // This is a more direct approach - bypass Next.js routing for authentication redirection
+      const baseUrl = window.location.origin;
+      const absolutePath = `${baseUrl}${targetPath}`;
+      
+      console.log('Redirecting to absolute path:', absolutePath);
+      
+      // Set loading to false before navigation to avoid UI issues
       setIsLoading(false);
       
-      // Use window.location for a hard redirect as a fallback if router.push doesn't work
-      window.location.href = targetPath;
+      // Use a direct location replacement for the most reliable redirect after authentication
+      window.location.replace(absolutePath);
+      
+      // Fallback if replace doesn't work immediately
+      setTimeout(() => {
+        if (window.location.pathname === '/') {
+          console.log('Fallback redirect with window.location.href');
+          window.location.href = absolutePath;
+        }
+      }, 1500);
     } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
