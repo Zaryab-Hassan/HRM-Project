@@ -9,11 +9,10 @@ const LoginModal = () => {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const router = useRouter();
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const onSubmit = async (data: any) => {
+  const [isLoading, setIsLoading] = useState(false);  const onSubmit = async (data: any) => {
     setIsLoading(true);
     setError('');
-      try {
+    try {
       // Get the URL parameters to extract callbackUrl
       const searchParams = new URLSearchParams(window.location.search);
       let callbackUrl = searchParams.get('callbackUrl') || '';
@@ -33,7 +32,10 @@ const LoginModal = () => {
         throw new Error(result.error);
       }
 
-      // Fetch the session role
+      // Crucial: wait for the session to be established
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Fetch the user session from the next-auth session endpoint
       const res = await fetch('/api/auth/session');
       const session = await res.json();
       const userRole = session?.user?.role || 'employee';
@@ -47,7 +49,9 @@ const LoginModal = () => {
             throw new Error('Your account has been terminated. Please contact HR for more information.');
           }
         }
-      }      // Determine the appropriate path based on user role
+      }
+      
+      // Determine the appropriate path based on user role
       let targetPath = '';
       if (userRole === 'hr') {
         targetPath = '/users/hr';
@@ -65,7 +69,7 @@ const LoginModal = () => {
       // Set loading to false before navigation
       setIsLoading(false);
       
-      // Use window.location for a hard redirect which is more reliable in production
+      // Use window.location for a hard redirect as a fallback if router.push doesn't work
       window.location.href = targetPath;
     } catch (err: any) {
       setError(err.message);
