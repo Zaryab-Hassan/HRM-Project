@@ -3,6 +3,7 @@
 import { SessionProvider } from "next-auth/react";
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import AutoActivityLogger from '@/lib/autoLogger';
 
 // Component that uses search params
 function ErrorMessage() {
@@ -29,6 +30,9 @@ export default function ClientSessionProvider({ children }: { children: React.Re
       <Suspense fallback={<ErrorMessageFallback />}>
         <ErrorMessage />
       </Suspense>
+      
+      {/* Auto-log user activities across the app */}
+      <AutoActivityLogger />
       {children}
     </SessionProvider>
   );

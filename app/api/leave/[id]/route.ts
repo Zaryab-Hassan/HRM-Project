@@ -18,9 +18,8 @@ export async function GET(
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    const userId = session.user.email;
+    }    const userEmail = session.user.email;
+    const userId = session.user.id;
     const userRole = session.user.role;
 
     const leaveRequest = await LeaveRequest.findById(id)
@@ -65,10 +64,9 @@ export async function PUT(
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    // Extract user details from session
-    const userId = session.user.email;
+    }    // Extract user details from session
+    const userEmail = session.user.email;
+    const userId = session.user.id; // Get the actual user ID
     const userRole = session.user.role || '';
 
     if (!['manager', 'hr'].includes(userRole)) {
@@ -90,23 +88,35 @@ export async function PUT(
     
     if (!leaveRequest) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 });
-    }
-
-    // For managers, check if employee is in their team
+    }    // For managers, check if employee is in their team
     if (userRole === 'manager') {
       const manager = await Manager.findById(userId);
-      if (!manager.team.includes(leaveRequest.employeeId)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      
+      if (!manager) {
+        return NextResponse.json({ error: 'Manager not found' }, { status: 404 });
       }
-    }
-
-    // HR users can approve/reject any leave request
+        // Check if manager has a team array and if employee is in it
+      if (!manager.team || !manager.team.some((empId: any) => 
+        empId.toString() === leaveRequest.employeeId.toString()
+      )) {
+        return NextResponse.json({ error: 'Not authorized to manage this employee' }, { status: 401 });
+      }
+    }    // HR users can approve/reject any leave request
     // No additional checks needed for HR
 
     leaveRequest.status = status;
-    leaveRequest.approvedBy = userId;
+    leaveRequest.approvedBy = userId; // This is the ObjectId from session.user.id
     leaveRequest.approvalDate = new Date();
-    await leaveRequest.save();
+    
+    try {
+      await leaveRequest.save();
+    } catch (err) {
+      console.error('Error saving leave request:', err);
+      return NextResponse.json(
+        { error: 'Failed to update leave request status' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(leaveRequest);
   } catch (error) {

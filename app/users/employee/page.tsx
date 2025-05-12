@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Notifications from '../../../components/Notifications';
+import ActivityLogger from '@/components/ActivityLogger';
+import { logActivity } from '@/lib/activityLogger';
 
 export default function EmployeeDashboard() {
   const { data: session, status } = useSession();
@@ -20,6 +22,13 @@ export default function EmployeeDashboard() {
     upcomingSalary: 0,
     recentPayments: []
   });
+  
+  // Log employee dashboard view
+  useEffect(() => {
+    if (session?.user) {
+      logActivity('view', 'dashboard', 'Employee accessed main dashboard');
+    }
+  }, [session]);
   
   useEffect(() => {
     if (status === 'unauthenticated') {

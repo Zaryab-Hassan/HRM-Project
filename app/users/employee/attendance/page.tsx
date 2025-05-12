@@ -6,6 +6,8 @@ import { FiClock, FiCalendar, FiLogIn, FiLogOut } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import MyAttendanceRecords from '../../../../components/MyAttendanceRecords';
+import ActivityLogger from '@/components/ActivityLogger';
+import { logActivity } from '@/lib/activityLogger';
 
 export default function AttendancePage() {
   const router = useRouter();
@@ -16,6 +18,13 @@ export default function AttendancePage() {
   const [lastActionTime, setLastActionTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Log page view
+  useEffect(() => {
+    if (session?.user) {
+      logActivity('view', 'attendance', 'Viewed attendance page');
+    }
+  }, [session]);
   
   // Authentication check
   useEffect(() => {
@@ -128,10 +137,15 @@ export default function AttendancePage() {
       
       // Update the UI based on response
       const timeString = new Date(action === 'clock-in' ? data.data.clockIn : data.data.clockOut)
-        .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      setAttendanceStatus(action === 'clock-in' ? 'clocked-in' : 'clocked-out');
+        .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });      setAttendanceStatus(action === 'clock-in' ? 'clocked-in' : 'clocked-out');
       setLastActionTime(`${action === 'clock-in' ? 'Clocked in' : 'Clocked out'} at ${timeString}`);
+      
+      // Log the clock in/out action
+      logActivity(
+        action === 'clock-in' ? 'create' : 'update', 
+        'attendance', 
+        `Employee ${action === 'clock-in' ? 'clocked in' : 'clocked out'} at ${timeString}`
+      );
       
     } catch (err) {
       console.error('Error recording attendance:', err);

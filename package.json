@@ -11,6 +11,7 @@
   "dependencies": {
     "@fontsource/poppins": "^5.2.5",
     "@next/font": "^14.2.15",
+    "@tremor/react": "^3.18.7",
     "bcryptjs": "^3.0.2",
     "daisyui": "^4.0.0",
     "jsonwebtoken": "^9.0.2",

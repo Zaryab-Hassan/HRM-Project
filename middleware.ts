@@ -1,8 +1,14 @@
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
+import { logActivity } from './middlewares/logMiddleware';
 
 export default withAuth(
-  function middleware(req) {
+  async function middleware(req: any) {
+    // Log page access for authenticated users
+    if (req.nextauth.token) {
+      await logActivity(req, NextResponse.next());
+    }
+    
     const role = req.nextauth.token?.role;
     const path = req.nextUrl.pathname;
 

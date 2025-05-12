@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { FiCreditCard, FiClock, FiCheck, FiX, FiCalendar } from 'react-icons/fi';
+import { logActivity } from '@/lib/activityLogger';
+import ActivityLogger from '@/components/ActivityLogger';
 
 type LoanStatus = 'Pending' | 'Approved' | 'Rejected' | 'Paid';
 type LoanType = 'personal' | 'education' | 'medical' | 'housing' | 'emergency';
@@ -29,6 +31,13 @@ const calculateMonthlyInstallment = (amount: number, durationMonths: number): nu
 
 const LoanApplicationPage: React.FC = () => {
   const { data: session } = useSession();
+  
+  // Log page view
+  useEffect(() => {
+    if (session?.user) {
+      logActivity('view', 'loan', 'Viewed loan applications page');
+    }
+  }, [session]);
   const [loanApplications, setLoanApplications] = useState<LoanApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +50,6 @@ const LoanApplicationPage: React.FC = () => {
     totalApproved: 15000,
     totalPaid: 3000
   });
-
   const [newLoan, setNewLoan] = useState<Omit<LoanApplication, '_id' | 'createdAt' | 'employeeId' | 'status' | 'approvedAt' | 'monthlyInstallment'>>({
     loanType: 'personal',
     amount: 0,
@@ -50,8 +58,34 @@ const LoanApplicationPage: React.FC = () => {
     startDate: undefined,
     endDate: undefined
   });
+  
+  // Default interest rate based on loan type
+  const [interestRate, setInterestRate] = useState<number>(5.0);
 
   const [estimatedPayment, setEstimatedPayment] = useState<number>(0);
+  // Update interest rate when loan type changes
+  useEffect(() => {
+    // Set default interest rate based on loan type
+    switch (newLoan.loanType) {
+      case 'personal':
+        setInterestRate(5.0);
+        break;
+      case 'education':
+        setInterestRate(4.0);
+        break;
+      case 'medical':
+        setInterestRate(3.5);
+        break;
+      case 'housing':
+        setInterestRate(6.0);
+        break;
+      case 'emergency':
+        setInterestRate(7.0);
+        break;
+      default:
+        setInterestRate(5.0);
+    }
+  }, [newLoan.loanType]);
 
   useEffect(() => {
     // Calculate estimated monthly payment when loan details change
@@ -135,8 +169,7 @@ const LoanApplicationPage: React.FC = () => {
       return;
     }
 
-    try {
-      // Call the actual API endpoint
+    try {      // Call the actual API endpoint
       const response = await fetch('/api/employee/loans', {
         method: 'POST',
         headers: {
@@ -144,12 +177,11 @@ const LoanApplicationPage: React.FC = () => {
         },
         body: JSON.stringify({
           ...newLoan,
+          interestRate: interestRate,
           monthlyInstallment: estimatedPayment
         }),
         credentials: 'include',
-      });
-      
-      const result = await response.json();
+      });      const result = await response.json();
       
       if (!response.ok) {
         throw new Error(result.error || 'Failed to submit loan application');
@@ -157,6 +189,13 @@ const LoanApplicationPage: React.FC = () => {
       
       // Add the new loan to the list
       setLoanApplications(prev => [result.data, ...prev]);
+      
+      // Log the loan application submission
+      logActivity(
+        'create', 
+        'loan', 
+        `Submitted ${newLoan.loanType} loan application for $${newLoan.amount} over ${newLoan.durationMonths} months`
+      );
       
       // Reset the form
       setNewLoan({
@@ -367,6 +406,10 @@ const LoanApplicationPage: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Duration:</p>
                     <p className="text-md font-semibold text-gray-800 dark:text-white">{newLoan.durationMonths} months</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Interest Rate:</p>
+                    <p className="text-md font-semibold text-blue-600 dark:text-blue-400">{interestRate.toFixed(2)}%</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Monthly Payment:</p>

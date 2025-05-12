@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import UserProfile, { EmployeeProfile } from '@/components/UserProfile';
+import { logActivity } from '@/lib/activityLogger';
+import ActivityLogger from '@/components/ActivityLogger';
 
 export default function EmployeeProfilePage() {
   const router = useRouter();
@@ -12,6 +14,13 @@ export default function EmployeeProfilePage() {
   const [profileData, setProfileData] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Log profile view
+  useEffect(() => {
+    if (session?.user) {
+      logActivity('view', 'profile', 'Viewed employee profile');
+    }
+  }, [session]);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     phone: '',
@@ -112,11 +121,13 @@ export default function EmployeeProfilePage() {
       }
       
       const result = await response.json();
-      
-      // Update profile data with the updated info
+        // Update profile data with the updated info
       if (result.data) {
         setProfileData(result.data);
       }
+      
+      // Log profile update
+      logActivity('update', 'profile', 'Updated employee profile information');
       
       // Exit edit mode
       setIsEditing(false);

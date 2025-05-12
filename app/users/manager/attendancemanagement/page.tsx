@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FiCalendar, FiCheckCircle, FiXCircle, FiBarChart2, FiDownload, FiUser, FiClock, FiRefreshCw } from 'react-icons/fi';
+import { jsPDF } from 'jspdf';
 
 // Import components
 import PendingLeaveRequests from '@/components/PendingLeaveRequests';
@@ -108,6 +109,138 @@ export default function AttendanceManager() {
       minute: '2-digit',
       hour12: true 
     });
+  };
+
+  // Generate Daily Attendance Report PDF
+  const generateDailyReport = () => {
+    // Create a new PDF document
+    const doc = new jsPDF();
+    
+    // Set title
+    doc.setFontSize(18);
+    doc.setTextColor(44, 62, 80); // Dark blue color
+    doc.text('Daily Attendance Report', 105, 15, { align: 'center' });
+    
+    // Add company name and logo-like header
+    doc.setFontSize(14);
+    doc.setTextColor(52, 152, 219); // Light blue color
+    doc.text('HRM System', 105, 25, { align: 'center' });
+    
+    // Add date
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Report generated on: ${formattedDate}`, 105, 33, { align: 'center' });
+    
+    // Add horizontal line
+    doc.setDrawColor(220, 220, 220);
+    doc.line(20, 38, 190, 38);
+      // Add attendance summary
+    doc.setFontSize(12);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Attendance Summary:', 20, 45);
+    
+    // Count all personnel including HR staff
+    const totalActivePersonnel = employees.filter(emp => emp.status !== 'Terminated').length;
+    // Count HR staff specifically
+    const hrStaffCount = employees.filter(emp => emp.role === 'HR' && emp.status !== 'Terminated').length;
+    
+    doc.setFontSize(10);
+    doc.text(`Total Personnel: ${totalActivePersonnel}`, 25, 55);
+    doc.text(`HR Staff: ${hrStaffCount}`, 25, 62);
+    doc.text(`Present: ${attendanceSummary.present}`, 25, 69);
+    doc.text(`Absent: ${attendanceSummary.absent}`, 25, 76);
+    doc.text(`On Leave: ${attendanceSummary.onLeave}`, 25, 83);
+    doc.text(`Attendance Rate: ${attendanceSummary.averageAttendance.toFixed(2)}%`, 25, 90);
+      // Add employee attendance table
+    doc.setFontSize(12);
+    doc.setTextColor(44, 62, 80);
+    doc.text('All Personnel Attendance Details:', 20, 95);
+    
+    // Table header
+    doc.setFillColor(52, 152, 219);
+    doc.setDrawColor(52, 152, 219);
+    doc.setTextColor(255, 255, 255);
+    doc.rect(20, 100, 170, 8, 'F');
+    doc.text('Name', 25, 106);
+    doc.text('Department', 80, 106);
+    doc.text('Status', 120, 106);
+    doc.text('Clock In', 145, 106);
+    doc.text('Clock Out', 170, 106);// Table rows
+    doc.setTextColor(0, 0, 0);
+    let yPosition = 120;
+    let count = 0;
+    
+    // Include all employees - both active and HR staff
+    // We only exclude terminated employees
+    const allEmployees = employees.filter(emp => emp.status !== 'Terminated');
+    
+    allEmployees.sort((a, b) => a.name.localeCompare(b.name)).forEach((employee, index) => {
+      // Add page break if needed
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = 20;
+        
+        // Add header in new page
+        doc.setFillColor(52, 152, 219);
+        doc.setTextColor(255, 255, 255);
+        doc.rect(20, yPosition, 170, 8, 'F');
+        doc.text('Name', 25, yPosition + 6);
+        doc.text('Department', 80, yPosition + 6);
+        doc.text('Status', 120, yPosition + 6);
+        doc.text('Clock In', 145, yPosition + 6);
+        doc.text('Clock Out', 170, yPosition + 6);
+        
+        yPosition += 15;
+        doc.setTextColor(0, 0, 0);
+      }
+        // Add row data
+      // Append role to name for HR staff
+      const displayName = employee.role === 'HR' ? 
+        `${employee.name.substring(0, 15)} (HR)` : 
+        employee.name.substring(0, 20);
+      
+      doc.text(displayName, 25, yPosition);
+      doc.text(employee.department.substring(0, 15), 80, yPosition);
+      
+      // Set status color based on status
+      let status = employee.clockedInToday ? 'Present' : 'Absent';
+      if (employee.status === 'On Leave') status = 'On Leave';
+      if (status === 'Present') {
+        doc.setTextColor(46, 204, 113); // Green
+      } else if (status === 'Absent') {
+        doc.setTextColor(231, 76, 60); // Red
+      } else {
+        doc.setTextColor(241, 196, 15); // Yellow
+      }
+      
+      doc.text(status, 120, yPosition);
+      doc.setTextColor(0, 0, 0);
+      
+      doc.text(employee.clockInTime || '-', 145, yPosition);
+      doc.text(employee.clockOutTime || '-', 170, yPosition);
+      
+      // Add light gray background for every second row
+      if (index % 2 === 1) {
+        doc.setFillColor(245, 245, 245);
+        doc.rect(20, yPosition - 6, 170, 8, 'F');
+      }
+      
+      yPosition += 10;
+      count++;
+    });    // Add footer with total count
+    doc.setFontSize(10);
+    doc.text(`Total Personnel Listed: ${count}`, 20, yPosition + 10);
+    doc.text(`Report Date: ${formatDate(new Date())}`, 20, yPosition + 20);
+    
+    // Save the PDF
+    doc.save(`Attendance_Report_${formatDate(new Date())}.pdf`);
   };
 
   // Function to handle refresh
@@ -524,9 +657,11 @@ export default function AttendanceManager() {
             <h2 className="text-lg font-semibold mb-4 dark:text-white">Quick Actions</h2>
             <div className="space-y-3">
               <button
-                className="w-full py-2 px-4 bg-blue-100 dark:bg-gray-700 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-gray-600"
+                onClick={generateDailyReport}
+                className="w-full py-2 px-4 bg-blue-100 dark:bg-gray-700 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-gray-600 flex items-center justify-center gap-2"
                 disabled={loading.attendance || loading.employees}
               >
+                <FiDownload className="w-5 h-5" />
                 Generate Daily Report
               </button>
               <button

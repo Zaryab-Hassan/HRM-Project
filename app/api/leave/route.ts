@@ -42,8 +42,7 @@ export async function GET(req: Request) {
       requests = await LeaveRequest.find(queryFilter)
         .populate('approvedBy', 'name email')
         .sort({ createdAt: -1 });
-    }
-    // For managers - get requests from their team members
+    }    // For managers - get requests from their team members
     else if (userRole === 'manager') {
       const manager = await Manager.findById(userId);
       if (!manager) {
@@ -52,17 +51,91 @@ export async function GET(req: Request) {
       
       // If explicitly requesting from leaveRequest.db, use the collection name
       if (source === 'leaveRequest.db') {
-        // Direct query to ensure we get all data from leaveRequest.db
-        // Convert documents to plain objects to avoid any serialization issues
-        const rawRequests = await LeaveRequest.find().lean().sort({ createdAt: -1 });
-        
-        // Process raw requests to ensure properly formatted data
-        requests = rawRequests.map(req => ({
-          ...req,
-          _id: (req as any)._id?.toString() || '', // Ensure MongoDB ObjectId is converted to string
-          status: req.status || 'Pending', // Default status if missing
-          createdAt: req.createdAt ? req.createdAt.toISOString() : new Date().toISOString()
-        }));
+        console.log("Fetching from leaveRequest.db directly");
+        try {
+          // Direct query to ensure we get all data from leaveRequest.db
+          // First get all records
+          const rawRequests = await LeaveRequest.find().lean();
+          
+          console.log(`Found ${rawRequests.length} raw leave requests`);
+          
+          // Batch fetch all employee IDs to improve performance
+          const employeeIds = rawRequests
+            .map(req => req.employeeId?.toString())
+            .filter(id => id); // Filter out undefined/null
+            
+          const employees = employeeIds.length > 0
+            ? await Employee.find({ _id: { $in: employeeIds } }).lean()
+            : [];
+            
+          // Create a map for quick employee lookup
+          interface EmployeeDoc {
+            _id: any;
+            name?: string;
+            email?: string;
+            [key: string]: any;
+          }
+          
+          const employeeMap = employees.reduce<Record<string, EmployeeDoc>>((map, emp: EmployeeDoc) => {
+            const id = emp._id.toString();
+            map[id] = emp;
+            return map;
+          }, {});
+          
+          console.log(`Found ${employees.length} employees`);
+          
+          // Define the structure of raw request from database
+          interface RawLeaveRequest {
+            _id: any;
+            employeeId?: any;
+            employeeName?: string;
+            status?: string;
+            startDate?: Date;
+            endDate?: Date;
+            createdAt?: Date | string;
+            [key: string]: any;
+          }
+          
+          // Process raw requests to ensure properly formatted data
+          requests = rawRequests.map((req: RawLeaveRequest) => {
+            const empId = req.employeeId?.toString();
+            const employee = empId ? employeeMap[empId] : null;
+            
+            // Create consistent employee data structure
+            const employeeData = employee 
+              ? {
+                  _id: employee._id.toString(),
+                  name: employee.name || 'Unknown',
+                  email: employee.email || ''
+                }
+              : {
+                  _id: empId || '',
+                  name: req.employeeName || 'Unknown Employee',
+                  email: ''
+                };
+            
+            return {
+              ...req,
+              _id: req._id.toString(),
+              employeeId: employeeData,
+              status: req.status || 'Pending',
+              startDate: req.startDate?.toISOString() || new Date().toISOString(),
+              endDate: req.endDate?.toISOString() || new Date().toISOString(),
+              createdAt: req.createdAt ? new Date(req.createdAt).toISOString() : new Date().toISOString()
+            };
+          });
+          
+          // Sort by date
+          requests.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          
+          console.log(`Processed ${requests.length} leave requests`);
+          if (requests.length > 0) {
+            console.log('Sample record:', requests[0]);
+          }
+        } catch (err) {
+          console.error('Error processing leave requests:', err);
+          return NextResponse.json({ error: 'Error processing records' }, { status: 500 });
+        }
       } 
       else if (manager.team && manager.team.length > 0) {
         queryFilter.employeeId = { $in: manager.team };

@@ -5,6 +5,7 @@ import "../../../app/globals.css";
 import ManagerSidebar from "../../../components/ManagerSidebar";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import ActivityLogger from "@/components/ActivityLogger";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,6 +47,11 @@ function ClientManagerLayout({ children }: { children: React.ReactNode }) {
         <Suspense fallback={<ErrorAlertFallback />}>
           <ErrorAlert />
         </Suspense>
+        {/* Log manager dashboard access */}
+        <ActivityLogger 
+          module="dashboard" 
+          details="Manager accessed dashboard" 
+        />
         {children}
       </div>
     </div>

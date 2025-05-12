@@ -1,0 +1,107 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
+import connectToDatabase from '../../../../../lib/mongodb';
+import PayrollRecord from '../../../../../models/PayrollRecord';
+import Employee from '../../../../../models/Employee';
+
+export async function POST(request: NextRequest) {
+  try {
+    await connectToDatabase();
+    
+    // Get the authenticated user's session
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !session.user || !session.user.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized access' },
+        { status: 401 }
+      );
+    }
+    
+    // Verify manager role (you may need to adjust this according to your authentication system)
+    if (session.user.role !== 'manager') {
+      return NextResponse.json(
+        { success: false, error: 'Access denied. Manager role required' },
+        { status: 403 }
+      );
+    }
+    
+    // Get the record ID and employee ID from the request body
+    const { recordId, employeeId } = await request.json();
+    
+    if (!recordId || !employeeId) {
+      return NextResponse.json(
+        { success: false, error: 'Record ID and Employee ID are required' },
+        { status: 400 }
+      );
+    }
+    
+    // Find the payroll record for the specified employee
+    const payrollRecord = await PayrollRecord.findOne({
+      _id: recordId,
+      employeeId: employeeId
+    }).populate('employeeId');
+    
+    if (!payrollRecord) {
+      return NextResponse.json(
+        { success: false, error: 'Payroll record not found' },
+        { status: 404 }
+      );
+    }
+    
+    if (payrollRecord.status !== 'Paid') {
+      return NextResponse.json(
+        { success: false, error: 'Payslip is only available for paid salaries' },
+        { status: 403 }
+      );
+    }
+    
+    // Find employee details
+    const employee = await Employee.findById(employeeId);
+    
+    if (!employee) {
+      return NextResponse.json(
+        { success: false, error: 'Employee not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Check if the manager is authorized to access this employee's data
+    // This could be based on department, team, or direct reporting relationship
+    // Adjust this according to your business logic
+    if (employee.managerId?.toString() !== session.user.id) {
+      return NextResponse.json(
+        { success: false, error: 'Not authorized to access this employee\'s payslip' },
+        { status: 403 }
+      );
+    }
+    
+    // Prepare payslip data
+    const payslipData = {
+      employeeName: payrollRecord.name || employee.name,
+      position: payrollRecord.position || employee.position,
+      month: payrollRecord.month,
+      year: payrollRecord.year,
+      baseSalary: payrollRecord.baseSalary,
+      bonuses: payrollRecord.bonuses,
+      bonusDescription: payrollRecord.bonusDescription || '',
+      deductions: payrollRecord.deductions,
+      deductionDescription: payrollRecord.deductionDescription || '',
+      netSalary: payrollRecord.netSalary,
+      paymentDate: payrollRecord.paymentDate || new Date(),
+      employeeId: employee._id
+    };
+    
+    return NextResponse.json({
+      success: true,
+      data: payslipData
+    });
+  } catch (error) {
+    console.error('Error generating payslip:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to generate payslip' },
+      { status: 500 }
+    );
+  }
+}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { FiCreditCard, FiDownload, FiFilter, FiCalendar, FiAlertCircle, FiCheck, FiClock } from 'react-icons/fi';
+import { logActivity } from '@/lib/activityLogger';
 
 // PayrollRecord type with descriptions
 export type PayrollRecord = {
@@ -38,8 +39,7 @@ function PayrollComponent({
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<'top' | 'bottom'>('bottom');
   const tableRef = useRef<HTMLTableElement>(null);
 
@@ -49,6 +49,9 @@ function PayrollComponent({
       try {
         setIsLoading(true);
         setError(null);
+        
+        // Log payroll data access
+        logActivity('view', 'payroll', `Viewed ${selectedMonth === 'All' ? 'all payroll records' : `${selectedMonth} payroll records`}`);
         
         const response = await fetch(`${apiEndpoint}?month=${selectedMonth}`);
         
@@ -99,9 +102,7 @@ function PayrollComponent({
         payslipEndpoint = '/api/hr/payroll/payslip';
       } else if (userRole === 'manager') {
         payslipEndpoint = '/api/manager/payroll/payslip';
-      }
-
-      const response = await fetch(payslipEndpoint, {
+      }      const response = await fetch(payslipEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,13 +112,14 @@ function PayrollComponent({
           ...(userRole !== 'employee' && { employeeId: record.employeeId }) // Include employeeId for HR/Manager
         }),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate payslip');
-      }
-
+      
+      // Parse the JSON response once
       const result = await response.json();
+      
+      // Check for errors after parsing
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to generate payslip');
+      }
       
       if (result.success) {
         // Create a printable version of the payslip

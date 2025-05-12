@@ -4,6 +4,7 @@ import "../../../app/globals.css";
 import EmployeeSidebar from "../../../components/EmployeeSidebar";
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import ActivityLogger from '@/components/ActivityLogger';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,6 +43,11 @@ function ClientEmployeeLayout({ children }: { children: React.ReactNode }) {
         <Suspense fallback={<ErrorAlertFallback />}>
           <ErrorAlert />
         </Suspense>
+        {/* Log employee dashboard access */}
+        <ActivityLogger 
+          module="dashboard" 
+          details="Employee accessed dashboard" 
+        />
         {children}
       </div>
     </div>

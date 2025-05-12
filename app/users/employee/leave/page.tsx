@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { logActivity } from '@/lib/activityLogger';
+import ActivityLogger from '@/components/ActivityLogger';
 
 type LeaveType = 'annual' | 'sick' | 'personal' | 'other';
 type LeaveStatus = 'Pending' | 'Approved' | 'Rejected';
@@ -113,7 +115,9 @@ const LeaveManagement: React.FC = () => {
     if (submitError) {
       setSubmitError(null);
     }
-  };  const handleSubmit = async (e: React.FormEvent) => {
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
     
@@ -141,9 +145,15 @@ const LeaveManagement: React.FC = () => {
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to submit leave request');
-      }
-
-      setLeaveRequests(prev => [data.data, ...prev]);
+      }      setLeaveRequests(prev => [data.data, ...prev]);
+      
+      // Log the leave request submission
+      logActivity(
+        'create', 
+        'leave', 
+        `Submitted ${newRequest.leaveType} leave request from ${newRequest.startDate} to ${newRequest.endDate}`
+      );
+      
       setNewRequest({
         leaveType: 'annual',
         startDate: '',
