@@ -66,26 +66,46 @@ const LoginModal = () => {
       return false;
     }
   }, []);
-  
-  // Handle redirect after successful login
+    // Handle redirect after successful login
   const handleRedirect = useCallback((url: string) => {
-    // Direct URL navigation for most reliable cross-browser behavior
-    window.location.href = url;
+    console.log('Executing redirect to:', url);
     
-    // Backup redirect mechanism for edge cases
-    setTimeout(() => {
-      if (window.location.pathname === '/' || window.location.pathname === '') {
-        window.location.replace(url);
+    // For Vercel deployments, we need to ensure the URL is absolute
+    const finalUrl = url.startsWith('http') ? url : `${window.location.origin}${url}`;
+    console.log('Final redirect URL:', finalUrl);
+    
+    try {
+      // First try using router push if it's a relative URL
+      if (!url.startsWith('http')) {
+        router.push(url);
       }
-    }, 1000);
-  }, []);
-  
-  const onSubmit = async (data: any) => {
+      
+      // Then use window.location as a fallback with a small delay
+      setTimeout(() => {
+        window.location.href = finalUrl;
+      }, 300);
+      
+      // Final fallback for edge cases after a longer delay
+      setTimeout(() => {
+        if (window.location.pathname === '/' || window.location.pathname === '') {
+          console.log('Using force navigation fallback');
+          window.location.replace(finalUrl);
+        }
+      }, 1500);
+    } catch (e) {
+      // If router.push fails, use the direct location change
+      console.error('Router navigation error:', e);
+      window.location.href = finalUrl;
+    }
+  }, [router]);
+    const onSubmit = async (data: any) => {
     setIsLoading(true);
     setError('');
     
     try {
       const callbackUrl = getCallbackUrl();
+      
+      console.log('Starting authentication process...');
       
       // Authenticate with credentials
       const result = await signIn('credentials', {
@@ -99,18 +119,28 @@ const LoginModal = () => {
         throw new Error(result?.error || 'Authentication failed');
       }
       
-      // Immediately fetch session to get user details
+      console.log('Authentication successful, fetching session...');
+      
+      // Wait a moment for the session to be properly established
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Fetch session to get user details
       const session = await getSession();
       
+      console.log('Session data:', JSON.stringify(session));
+      
       if (!session?.user) {
+        console.error('No user in session after successful login');
         throw new Error('Failed to establish session');
       }
       
       // Get user role from session
       const userRole = session.user.role || 'employee';
+      console.log('User role from session:', userRole);
       
       // Only check termination status for employees
       if (userRole === 'employee') {
+        console.log('Checking employee termination status...');
         const isTerminated = await checkEmployeeStatus();
         
         if (isTerminated) {

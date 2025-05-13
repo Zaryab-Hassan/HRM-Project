@@ -23,18 +23,35 @@ export default function EmployeeDashboard() {
     recentPayments: []
   });
   
+  console.log('Employee dashboard - Auth status:', status);
+  console.log('Employee dashboard - Session:', session);
+  
   // Log employee dashboard view
   useEffect(() => {
     if (session?.user) {
+      console.log('Employee dashboard - Logging activity for user:', session.user);
       logActivity('view', 'dashboard', 'Employee accessed main dashboard');
     }
   }, [session]);
   
+  // Handle authentication redirects
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
+    if (status === 'loading') {
+      console.log('Employee dashboard - Auth status loading...');
+      return; // Wait until we know the authentication status
     }
-  }, [status, router]);
+    
+    if (status === 'unauthenticated') {
+      console.log('Employee dashboard - User not authenticated, redirecting to login');
+      // Use window.location for most reliable redirect from protected pages
+      window.location.href = '/';
+    } else if (session?.user?.role && session.user.role !== 'employee') {
+      console.log(`Employee dashboard - Incorrect role (${session.user.role}), redirecting...`);
+      // Redirect to appropriate dashboard based on role
+      const rolePath = session.user.role === 'hr' ? '/users/hr' : '/users/manager';
+      router.replace(rolePath);
+    }
+  }, [status, session, router]);
 
   // Fetch employee data
   useEffect(() => {

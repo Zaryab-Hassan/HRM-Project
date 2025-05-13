@@ -7,6 +7,10 @@ export default withAuth(
     // Handle Vercel deployment specific modifications
     const isProduction = process.env.NODE_ENV === 'production';
     
+    // Debugging in middleware
+    console.log('Middleware - Current path:', req.nextUrl.pathname);
+    console.log('Middleware - User role:', req.nextauth.token?.role);
+    
     // Check if we have a token before logging activity
     // In production environments, we'll skip activity logging temporarily to focus on auth
     if (req.nextauth.token && !isProduction) {
@@ -18,7 +22,7 @@ export default withAuth(
       }
     }
     
-    const role = req.nextauth.token?.role;
+    const role = req.nextauth.token?.role || 'employee'; // Default to employee if no role
     const path = req.nextUrl.pathname;
 
     // Admin (HR) can access everything

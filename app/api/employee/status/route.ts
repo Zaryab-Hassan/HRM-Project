@@ -12,15 +12,23 @@ export async function GET(req: Request) {
     // Use NextAuth session for authentication
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
+      console.log('No authenticated session found when checking employee status');
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     // Get the employee id from the session
     const employeeId = session.user.id;
+    console.log(`Checking employee status for ID: ${employeeId}`);
+    
+    if (!employeeId) {
+      console.log('Missing employee ID in session');
+      return NextResponse.json({ error: 'Employee ID not found in session' }, { status: 400 });
+    }
     
     // Get employee data
     const employee = await Employee.findById(employeeId).select('-password');
     if (!employee) {
+      console.log(`Employee not found with ID: ${employeeId}`);
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
 

@@ -18,6 +18,7 @@ import Notifications from "../../../components/Notifications";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import ManagerSidebar from "@/components/ManagerSidebar";
+import { logActivity } from '@/lib/activityLogger';
 
 type SummaryStats = {
   totalEmployees: number;
@@ -59,6 +60,14 @@ export default function ManagerDashboard() {
   const [availableEmployees, setAvailableEmployees] = useState<Employee[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
+  
+  // Log manager dashboard access
+  useEffect(() => {
+    if (session?.user) {
+      console.log('Manager dashboard - Logged in user:', session.user);
+      logActivity('view', 'dashboard', 'Manager accessed main dashboard');
+    }
+  }, [session]);
   const [terminatingEmployee, setTerminatingEmployee] = useState<string | null>(null);
   
   // Add registration form state
@@ -148,14 +157,31 @@ export default function ManagerDashboard() {
       setError(err instanceof Error ? err.message : 'Registration failed');
     }
   };
-
-  // Check authentication and authorization
+  // Authentication and role verification
   useEffect(() => {
+    console.log('Manager dashboard - Auth status:', status);
+    
+    if (status === 'loading') {
+      console.log('Manager dashboard - Auth status loading...');
+      return; // Wait until authentication status is determined
+    }
+    
     if (status === "unauthenticated") {
-      router.push("/");
-    } else if (status === "authenticated" && session?.user?.role !== "manager") {
-      // Redirect non-manager users
-      router.push("/users/" + (session?.user?.role || "employee"));
+      console.log('Manager dashboard - User not authenticated, redirecting to login');
+      // Use window.location for most reliable redirect
+      window.location.href = '/';
+      return;
+    } 
+    
+    // Check if user has manager role
+    if (session?.user?.role !== "manager") {
+      console.log(`Manager dashboard - Incorrect role (${session?.user?.role}), redirecting...`);
+      // Redirect to appropriate dashboard based on role
+      const rolePath = session?.user?.role === 'hr' 
+        ? '/users/hr' 
+        : '/users/employee';
+      
+      router.replace(rolePath);
     }
   }, [status, session, router]);
 
@@ -260,12 +286,18 @@ export default function ManagerDashboard() {
       };
     }
   }, []);
-
-  // Don't render the dashboard until we confirm the user is a manager
-  if (status === "loading" || status === "unauthenticated" || (status === "authenticated" && session?.user?.role !== "manager")) {
-    return <div className="flex justify-center items-center min-h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
-    </div>;
+  // Show loading state while checking authentication
+  if (status === "loading") {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+  
+  // Skip rendering if not authenticated with manager role
+  if (status !== "authenticated" || session?.user?.role !== "manager") {
+    return null;
   }
 
   const handleAddEmployee = async (employeeId: string) => {

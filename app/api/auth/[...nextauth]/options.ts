@@ -91,11 +91,12 @@ export const authOptions: NextAuthOptions = {
         });
       }
       return session;
-    }
-  },pages: {
+    }  },  pages: {
     signIn: '/',
     error: '/?error=true',
-  },  session: {
+    newUser: '/users/employee', // Default for new users
+  },
+  session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
     updateAge: 24 * 60 * 60, // 24 hours - Only refresh the token once per day for performance
