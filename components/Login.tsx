@@ -9,7 +9,9 @@ const LoginModal = () => {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const router = useRouter();
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);  const onSubmit = async (data: any) => {
+  const [isLoading, setIsLoading] = useState(false);  
+  
+  const onSubmit = async (data: any) => {
     setIsLoading(true);
     setError('');
     try {
@@ -31,7 +33,9 @@ const LoginModal = () => {
 
       if (result?.error) {
         throw new Error(result.error);
-      }      if (!result?.ok) {
+      }      
+      
+      if (!result?.ok) {
         throw new Error('Authentication failed');
       }
 
@@ -50,7 +54,9 @@ const LoginModal = () => {
       console.log('SignIn result:', result);
       
       // Use getSession() from next-auth/react instead of manual fetch
-      const { getSession } = await import('next-auth/react');      // For Vercel deployments, try to extract role from result directly
+      const { getSession } = await import('next-auth/react');      
+      
+      // For Vercel deployments, try to extract role from result directly
       try {
         // For NextAuth, the result often contains information about the user
         if (result && typeof result === 'object') {
@@ -132,28 +138,48 @@ const LoginModal = () => {
       } else {
         targetPath = '/users/employee';
       }
-        // Log for debugging purposes
+        
+      // If we have a valid callbackUrl and it's from our domain, prioritize that
+      // But only if it's from our own domain to prevent open redirect vulnerabilities
+      let redirectTo = targetPath;
+      
+      if (callbackUrl) {
+        try {
+          // Parse the URL to check if it belongs to our domain
+          const urlObj = new URL(callbackUrl);
+          const currentHost = window.location.hostname;
+          
+          // Check if the callback URL is from our domain or is a relative path
+          if (urlObj.hostname === currentHost || !urlObj.hostname) {
+            console.log('Using callbackUrl for redirection:', callbackUrl);
+            redirectTo = callbackUrl;
+          } else {
+            console.warn('Ignoring callbackUrl from external domain:', callbackUrl);
+          }
+        } catch (e) {
+          console.error('Invalid callbackUrl:', callbackUrl, e);
+        }
+      }
+      
+      // Log for debugging purposes
       console.log('User role:', userRole);
       console.log('Target path:', targetPath);
-        // Handle redirection - always use the direct path for Vercel deployment
-      // This bypasses any issues with Next.js client-side routing
-      const redirectTo = targetPath; // Always use target path for predictable routing
-      console.log('Redirecting to:', redirectTo);
+      console.log('Final redirect destination:', redirectTo);
       
       // Set loading to false before navigation
       setIsLoading(false);
       
-      // For Vercel environment, direct URL change works more reliably than router.push
-      // Using window.location.replace to completely replace the history entry
-      window.location.replace(redirectTo);
+      // For Vercel environment, direct URL change works more reliably
+      // Using window.location.href for consistent behavior
+      window.location.href = redirectTo;
       
       // Safeguard: If we're still on the login page after a delay, force navigation
       setTimeout(() => {
-        if (window.location.pathname === '/') {
+        if (window.location.pathname === '/' || window.location.pathname === '') {
           console.log('Using force navigation fallback');
-          window.location.href = redirectTo;
+          window.location.replace(redirectTo);
         }
-      }, 1000);
+      }, 2000);
     } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
