@@ -7,6 +7,7 @@ import connectToDatabase from '@/lib/mongodb';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || 'your-secret-key',
+  debug: process.env.NODE_ENV === 'development',
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -57,12 +58,13 @@ export const authOptions: NextAuthOptions = {
         };
       }
     })
-  ],
-  callbacks: {
+  ],  callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.email = user.email;
+        token.name = user.name;
       }
       return token;
     },
@@ -70,14 +72,28 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.id;
         session.user.role = token.role as string | null;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string;
       }
       return session;
-    }  },
-  pages: {
+    }
+  },pages: {
     signIn: '/',
+    error: '/?error=true',
   },
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' ? `__Secure-next-auth.session-token` : `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === 'production',
+      }
+    }
   }
 };

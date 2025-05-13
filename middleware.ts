@@ -4,9 +4,14 @@ import { logActivity } from './middlewares/logMiddleware';
 
 export default withAuth(
   async function middleware(req: any) {
-    // Log page access for authenticated users
+    // Check if we have a token before logging activity
     if (req.nextauth.token) {
-      await logActivity(req, NextResponse.next());
+      try {
+        await logActivity(req, NextResponse.next());
+      } catch (error) {
+        console.error("Error logging activity:", error);
+        // Continue even if logging fails
+      }
     }
     
     const role = req.nextauth.token?.role;

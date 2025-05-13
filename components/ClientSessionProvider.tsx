@@ -26,7 +26,10 @@ function ErrorMessageFallback() {
 
 export default function ClientSessionProvider({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider refetchInterval={0} refetchWhenOffline={false}>
+    <SessionProvider 
+      refetchInterval={5 * 60} // Refetch session every 5 minutes to keep it fresh
+      refetchOnWindowFocus={true} // Refetch when window gains focus
+    >
       <Suspense fallback={<ErrorMessageFallback />}>
         <ErrorMessage />
       </Suspense>

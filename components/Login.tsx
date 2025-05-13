@@ -20,7 +20,9 @@ const LoginModal = () => {
       // Properly decode the callback URL if it exists
       if (callbackUrl) {
         callbackUrl = decodeURIComponent(callbackUrl);
-      }      // We'll use the true signIn approach but prevent the default redirect
+      }
+
+      // Use signIn with redirect: false to prevent automatic redirects
       const result = await signIn('credentials', {
         redirect: false, // We'll handle redirection ourselves
         email: data.email,
@@ -31,23 +33,31 @@ const LoginModal = () => {
         throw new Error(result.error);
       }
 
-      // Crucial: wait for the session to be established
-      await new Promise(resolve => setTimeout(resolve, 1500));      // Try to get the session directly from result if available
-      let userRole = 'employee'; // Default role
+      if (!result?.ok) {
+        throw new Error('Authentication failed');
+      }
+
+      // Add a short delay to ensure session is established
+      await new Promise(resolve => setTimeout(resolve, 1000));      
       
-      // Debug the result to see what we're getting from signIn
+      // Default role
+      let userRole = 'employee';
+        // Debug the result to see what we're getting from signIn
       console.log('SignIn result:', result);
       
-      // Get authenticated session after login with multiple retries
+      // Use getSession() from next-auth/react instead of manual fetch
+      const { getSession } = await import('next-auth/react');
+      
+      // Try to get the session a few times to ensure it's ready
       let session = null;
       let retryCount = 0;
       const maxRetries = 3;
       
       while (retryCount < maxRetries) {
         try {
-          const res = await fetch('/api/auth/session');
-          session = await res.json();
-          console.log(`Session attempt ${retryCount + 1}:`, session);
+          console.log(`Getting session attempt ${retryCount + 1}`);
+          session = await getSession();
+          console.log(`Session result:`, session);
           
           if (session?.user?.role) {
             userRole = session.user.role;
@@ -56,27 +66,43 @@ const LoginModal = () => {
           }
           
           // If no role found, wait and try again
-          await new Promise(resolve => setTimeout(resolve, 800));
+          await new Promise(resolve => setTimeout(resolve, 500));
           retryCount++;
         } catch (err) {
-          console.error(`Error fetching session (attempt ${retryCount + 1}):`, err);
+          console.error(`Error getting session (attempt ${retryCount + 1}):`, err);
           retryCount++;
-          await new Promise(resolve => setTimeout(resolve, 800));
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+        // If we still don't have a role, try to extract it from the result
+      if (!userRole && result) {
+        try {
+          // Try one more time with a fresh session
+          const freshSession = await getSession();
+          if (freshSession?.user?.role) {
+            userRole = freshSession.user.role;
+          }
+        } catch (e) {
+          console.error("Error getting fresh session:", e);
         }
       }
       
-      // If we still don't have a role, use the default
-      userRole = session?.user?.role || 'employee';
+      // If we still don't have a role after all attempts, use default
+      userRole = userRole || 'employee';
       console.log('Final user role:', userRole);
 
       // Check if the employee is terminated
       if (userRole === 'employee') {
-        const statusRes = await fetch('/api/employee/status');
-        if (statusRes.ok) {
-          const statusData = await statusRes.json();
-          if (statusData.status === 'Terminated') {
-            throw new Error('Your account has been terminated. Please contact HR for more information.');
+        try {
+          const statusRes = await fetch('/api/employee/status');
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.status === 'Terminated') {
+              throw new Error('Your account has been terminated. Please contact HR for more information.');
+            }
           }
+        } catch (error) {
+          console.error("Error checking employee status:", error);
         }
       }
       
@@ -89,33 +115,28 @@ const LoginModal = () => {
       } else {
         targetPath = '/users/employee';
       }
-      
-      // Log for debugging purposes
+        // Log for debugging purposes
       console.log('User role:', userRole);
       console.log('Target path:', targetPath);
-      console.log('Callback URL:', callbackUrl);      // Log the target path for debugging
-      console.log('Attempting navigation to:', targetPath);
       
-      // Try the most direct approach: use the signIn redirect
-      // This is a more direct approach - bypass Next.js routing for authentication redirection
-      const baseUrl = window.location.origin;
-      const absolutePath = `${baseUrl}${targetPath}`;
+      // Handle redirection - prioritize callbackUrl if it exists
+      // Otherwise use the role-based path
+      const redirectTo = callbackUrl || targetPath;
+      console.log('Redirecting to:', redirectTo);
       
-      console.log('Redirecting to absolute path:', absolutePath);
-      
-      // Set loading to false before navigation to avoid UI issues
+      // Set loading to false before navigation
       setIsLoading(false);
       
-      // Use a direct location replacement for the most reliable redirect after authentication
-      window.location.replace(absolutePath);
+      // Use Next.js router for client-side navigation first (works better with Next.js)
+      router.push(targetPath);
       
-      // Fallback if replace doesn't work immediately
+      // Fallback: use window.location if router doesn't redirect within 500ms
       setTimeout(() => {
         if (window.location.pathname === '/') {
-          console.log('Fallback redirect with window.location.href');
-          window.location.href = absolutePath;
+          console.log('Using fallback redirect method');
+          window.location.href = redirectTo;
         }
-      }, 1500);
+      }, 500);
     } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
