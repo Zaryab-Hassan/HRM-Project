@@ -7,6 +7,7 @@ import connectToDatabase from '@/lib/mongodb';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || 'your-secret-key',
+  useSecureCookies: process.env.NODE_ENV === 'production',
   debug: process.env.NODE_ENV === 'development',
   providers: [
     CredentialsProvider({
@@ -84,16 +85,19 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  cookies: {
-    sessionToken: {
-      name: process.env.NODE_ENV === 'production' ? `__Secure-next-auth.session-token` : `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === 'production',
+  },  // For Vercel deployment, it's better to use the default cookie handler
+  // which automatically handles domain detection in production environments
+  cookies: process.env.NODE_ENV === 'production' 
+    ? undefined  // Use NextAuth defaults in production
+    : {
+        sessionToken: {
+          name: `next-auth.session-token`,
+          options: {
+            httpOnly: true,
+            sameSite: "lax",
+            path: "/",
+            secure: false,
+          }
+        }
       }
-    }
-  }
 };

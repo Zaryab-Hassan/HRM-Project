@@ -4,8 +4,12 @@ import { logActivity } from './middlewares/logMiddleware';
 
 export default withAuth(
   async function middleware(req: any) {
+    // Handle Vercel deployment specific modifications
+    const isProduction = process.env.NODE_ENV === 'production';
+    
     // Check if we have a token before logging activity
-    if (req.nextauth.token) {
+    // In production environments, we'll skip activity logging temporarily to focus on auth
+    if (req.nextauth.token && !isProduction) {
       try {
         await logActivity(req, NextResponse.next());
       } catch (error) {

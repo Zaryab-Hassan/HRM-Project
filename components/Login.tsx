@@ -31,59 +31,76 @@ const LoginModal = () => {
 
       if (result?.error) {
         throw new Error(result.error);
-      }
-
-      if (!result?.ok) {
+      }      if (!result?.ok) {
         throw new Error('Authentication failed');
       }
 
-      // Add a short delay to ensure session is established
-      await new Promise(resolve => setTimeout(resolve, 1000));      
+      // Add a sufficient delay to ensure session is established
+      // This is particularly important in production environments
+      await new Promise(resolve => setTimeout(resolve, 1500));      
       
       // Default role
       let userRole = 'employee';
+      
+      // In Vercel environment, we might be able to extract role from the signIn result
+      if (result && typeof result === 'object') {
+        console.log('Examining full result object:', JSON.stringify(result));
+      }
         // Debug the result to see what we're getting from signIn
       console.log('SignIn result:', result);
       
       // Use getSession() from next-auth/react instead of manual fetch
-      const { getSession } = await import('next-auth/react');
+      const { getSession } = await import('next-auth/react');      // For Vercel deployments, try to extract role from result directly
+      try {
+        // For NextAuth, the result often contains information about the user
+        if (result && typeof result === 'object') {
+          // Try to extract role from authentication result if available
+          // The SignInResponse type doesn't officially have user property
+          // so we need to use type assertion or alternative approaches
+          const resultObj = result as any;
+          if (resultObj.user && resultObj.user.role) {
+            userRole = resultObj.user.role;
+            console.log('Role from result:', userRole);
+          } else if (resultObj.role) {
+            userRole = resultObj.role;
+            console.log('Role from result:', userRole);
+          }
+        }
+        
+        // Also check if we can extract role from cookie-stored data
+        // This uses a less direct approach but doesn't require extra libraries
+        const cookies = document.cookie.split('; ');
+        for (const cookie of cookies) {
+          if (cookie.startsWith('next-auth.') && cookie.includes('role')) {
+            try {
+              const cookieData = decodeURIComponent(cookie.split('=')[1]);
+              const parsedData = JSON.parse(cookieData);
+              if (parsedData && parsedData.role) {
+                userRole = parsedData.role;
+                console.log('Role from cookie:', userRole);
+              }
+            } catch (e) {
+              console.error("Error parsing cookie data:", e);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error accessing auth data:", e);
+      }
       
-      // Try to get the session a few times to ensure it's ready
-      let session = null;
-      let retryCount = 0;
-      const maxRetries = 3;
-      
-      while (retryCount < maxRetries) {
+      // Fallback to session if we didn't get a role from the token
+      if (!userRole || userRole === 'employee') {
         try {
-          console.log(`Getting session attempt ${retryCount + 1}`);
-          session = await getSession();
-          console.log(`Session result:`, session);
+          console.log("Getting session as fallback");
+          const session = await getSession();
+          console.log('Session result:', session);
           
           if (session?.user?.role) {
             userRole = session.user.role;
-            console.log('Found user role:', userRole);
-            break;
-          }
-          
-          // If no role found, wait and try again
-          await new Promise(resolve => setTimeout(resolve, 500));
-          retryCount++;
-        } catch (err) {
-          console.error(`Error getting session (attempt ${retryCount + 1}):`, err);
-          retryCount++;
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-        // If we still don't have a role, try to extract it from the result
-      if (!userRole && result) {
-        try {
-          // Try one more time with a fresh session
-          const freshSession = await getSession();
-          if (freshSession?.user?.role) {
-            userRole = freshSession.user.role;
+            console.log('Found user role from session:', userRole);
           }
         } catch (e) {
-          console.error("Error getting fresh session:", e);
+          console.error("Error getting session:", e);
         }
       }
       
@@ -118,25 +135,25 @@ const LoginModal = () => {
         // Log for debugging purposes
       console.log('User role:', userRole);
       console.log('Target path:', targetPath);
-      
-      // Handle redirection - prioritize callbackUrl if it exists
-      // Otherwise use the role-based path
-      const redirectTo = callbackUrl || targetPath;
+        // Handle redirection - always use the direct path for Vercel deployment
+      // This bypasses any issues with Next.js client-side routing
+      const redirectTo = targetPath; // Always use target path for predictable routing
       console.log('Redirecting to:', redirectTo);
       
       // Set loading to false before navigation
       setIsLoading(false);
       
-      // Use Next.js router for client-side navigation first (works better with Next.js)
-      router.push(targetPath);
+      // For Vercel environment, direct URL change works more reliably than router.push
+      // Using window.location.replace to completely replace the history entry
+      window.location.replace(redirectTo);
       
-      // Fallback: use window.location if router doesn't redirect within 500ms
+      // Safeguard: If we're still on the login page after a delay, force navigation
       setTimeout(() => {
         if (window.location.pathname === '/') {
-          console.log('Using fallback redirect method');
+          console.log('Using force navigation fallback');
           window.location.href = redirectTo;
         }
-      }, 500);
+      }, 1000);
     } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
