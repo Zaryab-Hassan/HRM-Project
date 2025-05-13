@@ -20,76 +20,100 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Please provide email and password');
         }
 
-        await connectToDatabase();
+        await connectToDatabase();        // Run all database queries in parallel for better performance
+        // Note: Don't use select('+password') with lean() as it won't work properly
+        const [employee, manager, admin] = await Promise.all([
+          Employee.findOne({ email: credentials.email }),
+          Manager.findOne({ email: credentials.email }),
+          Admin.findOne({ email: credentials.email })
+        ]);
 
-        // Check all user types (Employee, Manager, Admin)
-        const employee = await Employee.findOne({ email: credentials.email });
-        const manager = await Manager.findOne({ email: credentials.email });
-        const admin = await Admin.findOne({ email: credentials.email });
+        // Determine user type and role in a single step
+        let user;
+        let role = 'employee';
 
-        const user = employee || manager || admin;
-
-        if (!user) {
+        if (admin) {
+          user = admin;
+          role = 'hr';
+        } else if (manager) {
+          user = manager;
+          role = 'manager';
+        } else if (employee) {
+          user = employee;
+          // Check if employee has HR role
+          if (employee.role === 'hr') {
+            role = 'hr';
+          }
+        } else {
           throw new Error('No user found');
         }
-
+          // Password comparison with the document instance
+        // This ensures we're using the model instance methods
         const isValid = await user.comparePassword(credentials.password);
 
         if (!isValid) {
           throw new Error('Invalid password');
         }
 
-        // Determine role based on collection and the user's role field
-        let role = 'employee';
-        if (manager) {
-          role = 'manager';
-        } else if (admin) {
-          role = 'hr';
-        } else if (employee && employee.role === 'hr') {
-          // If an employee has an 'hr' role in their record, treat them as HR
-          role = 'hr';
-        }
-
+        // Return standardized user object with role information
         return {
           id: user._id.toString(),
           email: user.email,
-          name: user.name,
+          name: user.name || user.username || user.email.split('@')[0], // Fallback if name is missing
           role: role
         };
       }
     })
-  ],
-  callbacks: {
+  ],  callbacks: {
     async jwt({ token, user }) {
+      // Only update token when user object is available (during sign-in)
+      // This makes subsequent JWT callbacks more efficient
       if (user) {
-        token.id = user.id;
-        token.role = user.role;
+        // Set all essential user properties on token in one operation with error handling
+        Object.assign(token, {
+          id: user.id,
+          role: user.role || 'employee', // Default to employee if role is missing
+          name: user.name || token.name, // Keep existing name if available
+          email: user.email || token.email // Keep existing email if available
+        });
       }
       return token;
     },
     async session({ session, token }) {
+      // Map token data to session efficiently with error handling
       if (session.user) {
-        (session.user as any).id = token.id;
-        session.user.role = token.role as string | null;
+        // Transfer all token data to session in one operation
+        Object.assign(session.user, {
+          id: token.id,
+          role: (token.role as string | null) || 'employee',
+          name: token.name || session.user.name,
+          email: token.email || session.user.email
+        });
       }
       return session;
-    }  },  pages: {
+    }
+  },pages: {
     signIn: '/',
     error: '/?error=true',
-  },
-  session: {
+  },  session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60, // 24 hours - Only refresh the token once per day for performance
   },
-  cookies: {
-    sessionToken: {
-      name: process.env.NODE_ENV === 'production' ? `__Secure-next-auth.session-token` : `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === 'production',
+  // Optimized for Vercel deployment
+  // Use undefined in production to let NextAuth handle cookies automatically
+  // This is important for proper domain detection in Vercel environments
+  cookies: process.env.NODE_ENV === 'production'
+    ? undefined  // Use NextAuth defaults in production
+    : {
+        sessionToken: {
+          name: `next-auth.session-token`,
+          options: {
+            httpOnly: true,
+            sameSite: "lax",
+            path: "/",
+            secure: false,
+          }
+        }
       }
-    }
-  }
 };

@@ -1,7 +1,7 @@
 "use client";
 import { useForm } from "react-hook-form";
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import Image from 'next/image';
 
@@ -11,18 +11,83 @@ const LoginModal = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
+  // Extract and validate callback URL from query parameters
+  const getCallbackUrl = useCallback(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const rawCallbackUrl = searchParams.get('callbackUrl');
+    
+    if (!rawCallbackUrl) return '';
+    
+    try {
+      const decodedUrl = decodeURIComponent(rawCallbackUrl);
+      
+      // Basic URL validation
+      const urlObj = new URL(decodedUrl, window.location.origin);
+      const currentHost = window.location.hostname;
+      
+      // Only accept URLs from the same domain
+      if (urlObj.hostname === currentHost || !urlObj.hostname) {
+        return decodedUrl;
+      }
+      return ''; // Invalid domain
+    } catch (e) {
+      console.error('Invalid callback URL format:', rawCallbackUrl);
+      return '';
+    }
+  }, []);
+  
+  // Function to determine redirect path based on user role
+  const getRedirectPath = useCallback((userRole: string, callbackUrl: string) => {
+    const rolePaths = {
+      'hr': '/users/hr',
+      'manager': '/users/manager',
+      'employee': '/users/employee'
+    };
+    
+    // Use callback URL if valid, otherwise use role-based path
+    return callbackUrl || rolePaths[userRole as keyof typeof rolePaths] || '/users/employee';
+  }, []);
+  
+  // Check if employee account is terminated
+  const checkEmployeeStatus = useCallback(async () => {
+    try {
+      const response = await fetch('/api/employee/status', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-cache'
+      });
+      
+      if (!response.ok) return false;
+      
+      const data = await response.json();
+      return data.status === 'Terminated';
+    } catch (error) {
+      console.error('Error checking employee status:', error);
+      return false;
+    }
+  }, []);
+  
+  // Handle redirect after successful login
+  const handleRedirect = useCallback((url: string) => {
+    // Direct URL navigation for most reliable cross-browser behavior
+    window.location.href = url;
+    
+    // Backup redirect mechanism for edge cases
+    setTimeout(() => {
+      if (window.location.pathname === '/' || window.location.pathname === '') {
+        window.location.replace(url);
+      }
+    }, 1000);
+  }, []);
+  
   const onSubmit = async (data: any) => {
     setIsLoading(true);
     setError('');
     
     try {
-      // Get and decode callbackUrl (if exists)
-      const searchParams = new URLSearchParams(window.location.search);
-      const callbackUrl = searchParams.get('callbackUrl') 
-        ? decodeURIComponent(searchParams.get('callbackUrl') || '') 
-        : '';
+      const callbackUrl = getCallbackUrl();
       
-      // Perform authentication with optimized signIn call
+      // Authenticate with credentials
       const result = await signIn('credentials', {
         redirect: false,
         email: data.email,
@@ -30,83 +95,39 @@ const LoginModal = () => {
       });
 
       // Handle authentication errors
-      if (result?.error) {
-        throw new Error(result.error);
+      if (!result?.ok || result?.error) {
+        throw new Error(result?.error || 'Authentication failed');
       }
       
-      if (!result?.ok) {
-        throw new Error('Authentication failed');
-      }
-      
-      // Get session immediately after successful authentication
+      // Immediately fetch session to get user details
       const session = await getSession();
       
       if (!session?.user) {
         throw new Error('Failed to establish session');
       }
       
-      // Get user role - simplified role determination logic
+      // Get user role from session
       const userRole = session.user.role || 'employee';
-      console.log('User role from session:', userRole);
       
-      // Skip checking employee status for terminated employees to reduce API calls
+      // Only check termination status for employees
       if (userRole === 'employee') {
-        try {
-          const statusRes = await fetch('/api/employee/status');
-          if (statusRes.ok) {
-            const statusData = await statusRes.json();
-            if (statusData.status === 'Terminated') {
-              throw new Error('Your account has been terminated. Please contact HR for more information.');
-            }
-          }
-        } catch (error: any) {
-          if (error.message.includes('terminated')) {
-            setError(error.message);
-            setIsLoading(false);
-            return;
-          }
-          // Silently continue if it was just a network error checking status
+        const isTerminated = await checkEmployeeStatus();
+        
+        if (isTerminated) {
+          throw new Error('Your account has been terminated. Please contact HR for more information.');
         }
       }
       
-      // Determine target path based on role
-      const rolePaths = {
-        'hr': '/users/hr',
-        'manager': '/users/manager',
-        'employee': '/users/employee'
-      };
+      // Determine where to redirect the user
+      const redirectTo = getRedirectPath(userRole, callbackUrl);
       
-      // Default to role-based path
-      let redirectTo = rolePaths[userRole as keyof typeof rolePaths] || '/users/employee';
+      console.log(`User authenticated as ${userRole}, redirecting to: ${redirectTo}`);
       
-      // Use callbackUrl if valid and from our domain
-      if (callbackUrl) {
-        try {
-          const urlObj = new URL(callbackUrl);
-          const currentHost = window.location.hostname;
-          
-          if (urlObj.hostname === currentHost || !urlObj.hostname) {
-            redirectTo = callbackUrl;
-          }
-        } catch (e) {
-          console.error('Invalid callback URL:', callbackUrl);
-        }
-      }
-      
-      console.log('Redirecting to:', redirectTo);
-      
-      // Ensure we're ready to redirect (avoid flash of login screen)
+      // Reset loading state before redirection
       setIsLoading(false);
       
-      // Use consistent redirect approach for Vercel
-      window.location.href = redirectTo;
-      
-      // Fallback redirect in case the first approach doesn't work
-      setTimeout(() => {
-        if (window.location.pathname === '/' || window.location.pathname === '') {
-          window.location.replace(redirectTo);
-        }
-      }, 1500);
+      // Perform the redirect
+      handleRedirect(redirectTo);
       
     } catch (err: any) {
       setError(err.message);
