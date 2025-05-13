@@ -2,119 +2,54 @@
 import { useForm } from "react-hook-form";
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react';
 import Image from 'next/image';
 
 const LoginModal = () => {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const router = useRouter();
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);  
+  const [isLoading, setIsLoading] = useState(false);
   
   const onSubmit = async (data: any) => {
     setIsLoading(true);
     setError('');
+    
     try {
-      // Get the URL parameters to extract callbackUrl
+      // Get and decode callbackUrl (if exists)
       const searchParams = new URLSearchParams(window.location.search);
-      let callbackUrl = searchParams.get('callbackUrl') || '';
+      const callbackUrl = searchParams.get('callbackUrl') 
+        ? decodeURIComponent(searchParams.get('callbackUrl') || '') 
+        : '';
       
-      // Properly decode the callback URL if it exists
-      if (callbackUrl) {
-        callbackUrl = decodeURIComponent(callbackUrl);
-      }
-
-      // Use signIn with redirect: false to prevent automatic redirects
+      // Perform authentication with optimized signIn call
       const result = await signIn('credentials', {
-        redirect: false, // We'll handle redirection ourselves
+        redirect: false,
         email: data.email,
         password: data.password,
       });
 
+      // Handle authentication errors
       if (result?.error) {
         throw new Error(result.error);
-      }      
+      }
       
       if (!result?.ok) {
         throw new Error('Authentication failed');
       }
-
-      // Add a sufficient delay to ensure session is established
-      // This is particularly important in production environments
-      await new Promise(resolve => setTimeout(resolve, 1500));      
       
-      // Default role
-      let userRole = 'employee';
+      // Get session immediately after successful authentication
+      const session = await getSession();
       
-      // In Vercel environment, we might be able to extract role from the signIn result
-      if (result && typeof result === 'object') {
-        console.log('Examining full result object:', JSON.stringify(result));
-      }
-        // Debug the result to see what we're getting from signIn
-      console.log('SignIn result:', result);
-      
-      // Use getSession() from next-auth/react instead of manual fetch
-      const { getSession } = await import('next-auth/react');      
-      
-      // For Vercel deployments, try to extract role from result directly
-      try {
-        // For NextAuth, the result often contains information about the user
-        if (result && typeof result === 'object') {
-          // Try to extract role from authentication result if available
-          // The SignInResponse type doesn't officially have user property
-          // so we need to use type assertion or alternative approaches
-          const resultObj = result as any;
-          if (resultObj.user && resultObj.user.role) {
-            userRole = resultObj.user.role;
-            console.log('Role from result:', userRole);
-          } else if (resultObj.role) {
-            userRole = resultObj.role;
-            console.log('Role from result:', userRole);
-          }
-        }
-        
-        // Also check if we can extract role from cookie-stored data
-        // This uses a less direct approach but doesn't require extra libraries
-        const cookies = document.cookie.split('; ');
-        for (const cookie of cookies) {
-          if (cookie.startsWith('next-auth.') && cookie.includes('role')) {
-            try {
-              const cookieData = decodeURIComponent(cookie.split('=')[1]);
-              const parsedData = JSON.parse(cookieData);
-              if (parsedData && parsedData.role) {
-                userRole = parsedData.role;
-                console.log('Role from cookie:', userRole);
-              }
-            } catch (e) {
-              console.error("Error parsing cookie data:", e);
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Error accessing auth data:", e);
+      if (!session?.user) {
+        throw new Error('Failed to establish session');
       }
       
-      // Fallback to session if we didn't get a role from the token
-      if (!userRole || userRole === 'employee') {
-        try {
-          console.log("Getting session as fallback");
-          const session = await getSession();
-          console.log('Session result:', session);
-          
-          if (session?.user?.role) {
-            userRole = session.user.role;
-            console.log('Found user role from session:', userRole);
-          }
-        } catch (e) {
-          console.error("Error getting session:", e);
-        }
-      }
+      // Get user role - simplified role determination logic
+      const userRole = session.user.role || 'employee';
+      console.log('User role from session:', userRole);
       
-      // If we still don't have a role after all attempts, use default
-      userRole = userRole || 'employee';
-      console.log('Final user role:', userRole);
-
-      // Check if the employee is terminated
+      // Skip checking employee status for terminated employees to reduce API calls
       if (userRole === 'employee') {
         try {
           const statusRes = await fetch('/api/employee/status');
@@ -124,62 +59,55 @@ const LoginModal = () => {
               throw new Error('Your account has been terminated. Please contact HR for more information.');
             }
           }
-        } catch (error) {
-          console.error("Error checking employee status:", error);
+        } catch (error: any) {
+          if (error.message.includes('terminated')) {
+            setError(error.message);
+            setIsLoading(false);
+            return;
+          }
+          // Silently continue if it was just a network error checking status
         }
       }
       
-      // Determine the appropriate path based on user role
-      let targetPath = '';
-      if (userRole === 'hr') {
-        targetPath = '/users/hr';
-      } else if (userRole === 'manager') {
-        targetPath = '/users/manager';
-      } else {
-        targetPath = '/users/employee';
-      }
-        
-      // If we have a valid callbackUrl and it's from our domain, prioritize that
-      // But only if it's from our own domain to prevent open redirect vulnerabilities
-      let redirectTo = targetPath;
+      // Determine target path based on role
+      const rolePaths = {
+        'hr': '/users/hr',
+        'manager': '/users/manager',
+        'employee': '/users/employee'
+      };
       
+      // Default to role-based path
+      let redirectTo = rolePaths[userRole as keyof typeof rolePaths] || '/users/employee';
+      
+      // Use callbackUrl if valid and from our domain
       if (callbackUrl) {
         try {
-          // Parse the URL to check if it belongs to our domain
           const urlObj = new URL(callbackUrl);
           const currentHost = window.location.hostname;
           
-          // Check if the callback URL is from our domain or is a relative path
           if (urlObj.hostname === currentHost || !urlObj.hostname) {
-            console.log('Using callbackUrl for redirection:', callbackUrl);
             redirectTo = callbackUrl;
-          } else {
-            console.warn('Ignoring callbackUrl from external domain:', callbackUrl);
           }
         } catch (e) {
-          console.error('Invalid callbackUrl:', callbackUrl, e);
+          console.error('Invalid callback URL:', callbackUrl);
         }
       }
       
-      // Log for debugging purposes
-      console.log('User role:', userRole);
-      console.log('Target path:', targetPath);
-      console.log('Final redirect destination:', redirectTo);
+      console.log('Redirecting to:', redirectTo);
       
-      // Set loading to false before navigation
+      // Ensure we're ready to redirect (avoid flash of login screen)
       setIsLoading(false);
       
-      // For Vercel environment, direct URL change works more reliably
-      // Using window.location.href for consistent behavior
+      // Use consistent redirect approach for Vercel
       window.location.href = redirectTo;
       
-      // Safeguard: If we're still on the login page after a delay, force navigation
+      // Fallback redirect in case the first approach doesn't work
       setTimeout(() => {
         if (window.location.pathname === '/' || window.location.pathname === '') {
-          console.log('Using force navigation fallback');
           window.location.replace(redirectTo);
         }
-      }, 2000);
+      }, 1500);
+      
     } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
