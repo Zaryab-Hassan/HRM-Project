@@ -14,7 +14,8 @@ import {
   FiSearch,
   FiUser,
   FiLogOut,
-  FiX
+  FiX,
+  FiActivity
 } from "react-icons/fi";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
@@ -145,6 +146,13 @@ const ManagerSidebar = () => {
             className="flex items-center w-full p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition text-left">
             <FiBell className="mr-3 text-pink-500" />
             <span>Notifications</span>
+          </button>
+
+          <button 
+            className="flex items-center w-full p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition text-left"
+            onClick={() => navigateWithQuery("/users/manager/logs", "showAnnouncementModal=true")}>
+            <FiActivity className="mr-3 text-pink-500" />
+            <span>Logs</span>
           </button>
         </div>
       </div>
